@@ -1,0 +1,135 @@
+{
+  "project_name": "StudyBridge",
+  "theme": "dark",
+  "archetype": "Academic Night Mode (Luxury + Neon Accent Hybrid)",
+  "typography": {
+    "fonts": {
+      "display": "Michroma",
+      "body": "Outfit"
+    },
+    "rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-display text-white",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-display text-orange-50",
+      "h3": "text-xl sm:text-2xl font-display text-orange-100",
+      "body": "text-base leading-relaxed font-body text-orange-50/80",
+      "lesson_text": "text-lg md:text-xl leading-loose font-body text-orange-50 max-w-3xl mx-auto",
+      "labels": "text-xs tracking-[0.2em] uppercase font-display text-orange-500/80"
+    },
+    "anti_patterns": [
+      "Do not use generic fonts like Inter, Roboto, or Open Sans.",
+      "Do not default to bold for Michroma, let the font's natural width provide weight.",
+      "Do not center-align lesson body text; always left-align for K-12 readability."
+    ]
+  },
+  "colors": {
+    "background": {
+      "base": "#1A0000",
+      "surface": "#380101",
+      "surface_elevated": "#4A0A0A"
+    },
+    "accent": {
+      "primary": "#FA8720",
+      "primary_hover": "#FF9D42",
+      "glow": "rgba(250, 135, 32, 0.15)",
+      "mastery_yellow": "#FFC107"
+    },
+    "text": {
+      "primary": "#F8F3F0",
+      "secondary": "#E5C8C8",
+      "muted": "#B38282",
+      "inverse": "#1A0000"
+    },
+    "border": {
+      "subtle": "#5C1A1A",
+      "active": "rgba(250, 135, 32, 0.3)"
+    },
+    "rules": [
+      "Orange on Maroon contrast requires care. Use orange primarily for borders, icons, buttons, and progress rings. For orange text on maroon, ensure high luminance (use #FF9D42 if #FA8720 fails APCA).",
+      "Button text on an Orange primary background MUST be #1A0000 (Deepest Maroon) to ensure readable contrast.",
+      "Never use pure black (#000000) or pure white (#FFFFFF). All darks are maroon-tinted, all lights are warm-tinted."
+    ]
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing, Optical Alignment, Immersive Focus",
+    "bento_grid": {
+      "marketing": "grid-cols-1 md:grid-cols-12 gap-8. Hero col-span-full md:col-span-8 row-span-2. Use for Founder Story + Stats.",
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6. Use for Subject/Course grids."
+    },
+    "spacing_scale": "p-4, p-6, p-8, p-12, p-16, p-24. Containers with borders MUST have internal padding (p-6 or p-8) to prevent text collision."
+  },
+  "surfaces_and_micro_themes": {
+    "ambient_design": {
+      "concept": "Soft glow, subtle line accents, no overdone effects.",
+      "implementation": "Cards use bg-[#380101] with border border-[#5C1A1A]. Active/Mastery cards add shadow-[0_0_15px_rgba(250,135,32,0.15)] and border-[#FA8720]/30.",
+      "glassmorphism": "Used ONLY for the auto-hiding top banner: backdrop-blur-md bg-[#1A0000]/70 border-b border-[#5C1A1A]."
+    }
+  },
+  "components": {
+    "auto_hiding_banner": "Fixed top, fades out on scroll down, fades in on hover/scroll up. Contains COPPA compliance badge for K-5 and basic nav.",
+    "collapsible_sidebar": "Smooth width transition. Uses lucide-react icons. 1px right border (#5C1A1A).",
+    "lesson_reader": "max-w-3xl mx-auto, text-lg Outfit font, generous line height. Pass/Mastery states show yellow/orange glowing borders.",
+    "ai_helper_sidebar": "Distinct from main layout. 'Discuss dont answer' UI. Uses pulsing orange dot for thinking state. Border left #5C1A1A.",
+    "focus_mode": "In-app timer. When active, blocks navigation. UI shifts to pure #1A0000 void with a massive, perfectly circular glowing orange timer ring. No distractions.",
+    "parental_controls": "Data-dense Shadcn tables. Tighter grid, less gamification. Focus on utility and metrics."
+  },
+  "motion": {
+    "rules": [
+      "No universal transitions (transition: all is banned).",
+      "Staggered entrance animations for subject grids.",
+      "Hover states: slight lift (-translate-y-1) and glow opacity increase.",
+      "Focus Mode toggle: smooth fade-to-dark immersive transition."
+    ]
+  },
+  "accessibility": {
+    "contrast": "Ensure #FA8720 passes against #380101. Add text-shadow or brighten to #FFB067 if used for critical small text.",
+    "focus_states": "focus:outline-none focus:ring-2 focus:ring-[#FA8720] focus:ring-offset-2 focus:ring-offset-[#1A0000]",
+    "reduced_motion": "Respect prefers-reduced-motion media query for AI pulsing and Focus mode transitions."
+  },
+  "media_and_images": {
+    "image_urls": [
+      {
+        "category": "Hero / Dashboard Banner",
+        "url": "https://images.unsplash.com/photo-1690788210614-9052cffd8a14?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHwxfHxraWRzJTIwc3R1ZHlpbmclMjBkYXJrfGVufDB8fHx8MTc4NjczNjQ4MXww&ixlib=rb-4.1.0&q=85",
+        "description": "Student in dark setting using laptop (Hero or Founder Story background)"
+      },
+      {
+        "category": "Collaborative Learning / Parent-Led",
+        "url": "https://images.unsplash.com/photo-1740752259821-a2a999ecd816?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODl8MHwxfHNlYXJjaHw0fHxraWRzJTIwc3R1ZHlpbmclMjBkYXJrfGVufDB8fHx8MTc4NjczNjQ4MXww&ixlib=rb-4.1.0&q=85",
+        "description": "Two individuals in a dark room (Perfect for parent-led or tutor-matched UI)"
+      },
+      {
+        "category": "Ambient Abstract (Focus Mode / Backgrounds)",
+        "url": "https://images.unsplash.com/photo-1707324148764-99647364afa3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdlb21ldHJpYyUyMG9yYW5nZSUyMGFtYmllbnR8ZW58MHx8fHwxNzg2NzM2NDgxfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract orange geometry (Use for ambient textures, empty states, or mastery badges)"
+      }
+    ],
+    "rules": [
+      "Image overlays must be #1A0000/60 to match the maroon theme.",
+      "Never use pure black or white overlays.",
+      "Use mix-blend-luminosity or opacity to sink images into the dark maroon background."
+    ]
+  },
+  "3d_libraries": {
+    "recommendation": "Use framer-motion for smooth UI transitions and AI thinking states. 3D libraries (R3F) are not required unless gamified tutor ranks require an interactive 3D badge (Spline recommended if so)."
+  },
+  "instructions_to_main_agent": [
+    "Install Google Fonts 'Michroma' and 'Outfit'.",
+    "Configure Tailwind config with the specified color palette (#1A0000 base, #380101 surface, #FA8720 primary).",
+    "Build the layout shell with a collapsible sidebar and auto-hiding top banner.",
+    "Implement the Learn module with Bento Grids for subjects and an immersive, left-aligned reader for lessons.",
+    "Ensure the AI Helper sidebar visually feels like a separate layer (border-l, slight shadow).",
+    "Build 'Focus Mode' as a high-z-index overlay or a layout shift that hides all non-essential UI.",
+    "Ensure all interactive elements have data-testid attributes for testing."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends.",
+    "DO NOT use dark colors as gradients. Use solid dark maroon surfaces.",
+    "DO NOT apply universal transition (transition: all). Target specific properties.",
+    "DO NOT center align the app container. Respect K-12 reading flow (left-aligned text).",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Always use modern button styles (sharp or perfectly rounded pill) with interaction animations.",
+    "Use lucide-react for icons.",
+    "Use sonner for toasts.",
+    "All interactive elements MUST include a data-testid attribute."
+  ]
+}

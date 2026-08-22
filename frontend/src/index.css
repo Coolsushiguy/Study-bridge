@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Michroma&family=Outfit:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sb-base: #1A0000;
+  --sb-surface: #380101;
+  --sb-elevated: #4A0A0A;
+  --sb-accent: #FA8720;
+  --sb-accent-hover: #FF9D42;
+  --sb-border: #5C1A1A;
+  --background: 0 100% 5%;
+  --foreground: 20 30% 96%;
+  --card: 0 97% 11%;
+  --card-foreground: 20 30% 96%;
+  --popover: 0 97% 11%;
+  --popover-foreground: 20 30% 96%;
+  --primary: 31 96% 55%;
+  --primary-foreground: 0 100% 5%;
+  --secondary: 0 80% 17%;
+  --secondary-foreground: 20 30% 96%;
+  --muted: 0 60% 15%;
+  --muted-foreground: 0 25% 70%;
+  --accent: 31 96% 55%;
+  --accent-foreground: 0 100% 5%;
+  --destructive: 0 84% 50%;
+  --destructive-foreground: 20 30% 96%;
+  --border: 0 55% 23%;
+  --input: 0 55% 23%;
+  --ring: 31 96% 55%;
+  --radius: 0.75rem;
+}
+
+* { border-color: hsl(var(--border)); }
+
+body {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--sb-base);
+  color: #F8F3F0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'Michroma', sans-serif; }
+.font-body { font-family: 'Outfit', sans-serif; }
+
+::selection { background: rgba(250,135,32,0.3); color: #fff; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #1A0000; }
+::-webkit-scrollbar-thumb { background: #5C1A1A; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #FA8720; }
+
+.sb-glow { box-shadow: 0 0 20px rgba(250,135,32,0.15); }
+.sb-card { background: #380101; border: 1px solid #5C1A1A; }
+.sb-grain {
+  background-image: radial-gradient(rgba(250,135,32,0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@keyframes sb-fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.sb-fade-up { animation: sb-fade-up 0.5s ease both; }
+
+@keyframes sb-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+.sb-pulse { animation: sb-pulse 1.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-fade-up, .sb-pulse { animation: none; }
+}
