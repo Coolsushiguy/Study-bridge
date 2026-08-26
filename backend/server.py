@@ -379,6 +379,10 @@ async def subject_detail(subject_key: str, user: dict = Depends(get_current_user
 
 async def generate_chapter_content(subject, chapter, grade_int):
     grade_label = "Kindergarten" if grade_int == 0 else f"Grade {grade_int}"
+    is_science = subject["key"] == "science"
+    lab_schema = """,
+  "lab": {"title": "short lab name", "objective": "what students will discover", "materials": ["item"], "steps": ["step 1", "step 2"], "safety": "one safety note", "prediction": {"question": "what do you predict?", "options": ["a","b","c","d"], "answer_index": 0, "result": "explain what actually happens and why"}}""" if is_science else ""
+    lab_instruction = " Also include exactly ONE hands-on virtual 'lab' with 4-6 steps and a prediction question (4 options)." if is_science else ""
     prompt = f"""Create educational content for a {grade_label} chapter titled "{chapter['title']}" in {subject['name']}.
 Return STRICT JSON only, no markdown fences, with this exact shape:
 {{
@@ -388,9 +392,12 @@ Return STRICT JSON only, no markdown fences, with this exact shape:
   "exercises": [
     {{"question": "text", "options": ["a","b","c","d"], "answer_index": 0, "explanation": "why"}}
   ],
-  "glossary": [{{"term": "word", "definition": "kid-friendly definition"}}]
+  "glossary": [{{"term": "word", "definition": "kid-friendly definition"}}],
+  "videos": [
+    {{"title": "clear video title", "description": "one sentence on what it teaches", "duration": "e.g. 5 min", "query": "a safe youtube search phrase for this topic"}}
+  ]{lab_schema}
 }}
-Provide exactly 4 lessons, 5 exercises (multiple choice, 4 options each), and 5 glossary terms. Keep language appropriate for {grade_label}."""
+Provide exactly 4 lessons, 5 exercises (multiple choice, 4 options each), 5 glossary terms, and 12 kid-safe educational videos (each 'query' must be a specific, safe search phrase suited to {grade_label}).{lab_instruction} Keep language appropriate for {grade_label}."""
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"lesson-{uuid.uuid4()}",
@@ -403,7 +410,11 @@ Provide exactly 4 lessons, 5 exercises (multiple choice, 4 options each), and 5 
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         text = match.group(0)
-    return json.loads(text)
+    data = json.loads(text)
+    data.setdefault("videos", [])
+    if not is_science:
+        data["lab"] = None
+    return data
 
 
 @api.get("/subjects/{subject_key}/chapters/{chapter_key}")
@@ -414,7 +425,7 @@ async def chapter_detail(
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
     grade_int = user.get("grade_int", 0)
-    cache_key = f"{subject_key}:{chapter_key}:{grade_int}"
+    cache_key = f"{subject_key}:{chapter_key}:{grade_int}:v2"
     cached = await db.chapter_content.find_one({"cache_key": cache_key})
     if cached:
         content = cached["content"]
@@ -453,7 +464,7 @@ class ExerciseSubmit(BaseModel):
 @api.post("/exercises/submit")
 async def submit_exercise(body: ExerciseSubmit, user: dict = Depends(get_current_user)):
     grade_int = user.get("grade_int", 0)
-    cache_key = f"{body.subject}:{body.chapter}:{grade_int}"
+    cache_key = f"{body.subject}:{body.chapter}:{grade_int}:v2"
     cached = await db.chapter_content.find_one({"cache_key": cache_key})
     if not cached:
         raise HTTPException(status_code=404, detail="Chapter content not found")

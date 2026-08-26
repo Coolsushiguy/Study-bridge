@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, ListChecks, Library, Trophy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, BookOpen, ListChecks, Library, Trophy, CheckCircle2, Play, FlaskConical, X } from "lucide-react";
 
 export default function Chapter() {
   const { subjectKey, chapterKey } = useParams();
@@ -11,6 +11,7 @@ export default function Chapter() {
   const [answers, setAnswers] = useState([]);
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activeVideo, setActiveVideo] = useState(null);
 
   useEffect(() => {
     setData(null);
@@ -43,9 +44,11 @@ export default function Chapter() {
   const { content, subject, chapter } = data;
   const TABS = [
     { key: "lessons", label: "Lessons", icon: BookOpen },
+    { key: "videos", label: "Videos", icon: Play },
     { key: "exercises", label: "Exercises", icon: ListChecks },
     { key: "glossary", label: "Glossary", icon: Library },
   ];
+  if (content.lab) TABS.push({ key: "labs", label: "Lab", icon: FlaskConical });
 
   return (
     <div className="space-y-8 pb-16">
@@ -128,6 +131,127 @@ export default function Chapter() {
               <p className="text-sm text-orange-50/70 mt-1.5 leading-relaxed">{g.definition}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === "videos" && (
+        <div className="space-y-6">
+          {activeVideo && (
+            <div className="sb-card rounded-2xl p-4 sb-fade-up">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-display text-orange-100 text-sm">{activeVideo.title}</p>
+                <button data-testid="close-video" onClick={() => setActiveVideo(null)} className="text-sb-accent/60 hover:text-sb-accent"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-sb-border">
+                <iframe
+                  title={activeVideo.title}
+                  className="w-full h-full"
+                  src={`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent((activeVideo.query || activeVideo.title) + " educational for kids")}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <p className="text-xs text-sb-accent/40 mt-2">Safe search results only · no external links leave StudyBridge.</p>
+            </div>
+          )}
+          <p className="text-sm text-orange-50/50">Watch-and-learn · {content.videos.length} short videos for this chapter.</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {content.videos.map((v, i) => (
+              <button key={i} data-testid={`video-${i}`} onClick={() => setActiveVideo(v)}
+                className="sb-card rounded-2xl p-5 text-left hover:-translate-y-1 hover:border-sb-accent/30 transition-[transform,border-color] duration-300 sb-fade-up"
+                style={{ animationDelay: `${i * 0.03}s` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-full bg-sb-accent/15 flex items-center justify-center"><Play className="w-4 h-4 text-sb-accent ml-0.5" /></div>
+                  <span className="text-[10px] text-sb-accent/50">{v.duration}</span>
+                </div>
+                <p className="font-display text-sm text-orange-100 leading-snug">{v.title}</p>
+                <p className="text-xs text-orange-50/50 mt-1.5 leading-relaxed">{v.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "labs" && content.lab && <LabRunner lab={content.lab} />}
+    </div>
+  );
+}
+
+
+function LabRunner({ lab }) {
+  const [step, setStep] = useState(0);
+  const [phase, setPhase] = useState("run"); // run -> predict -> result
+  const [choice, setChoice] = useState(null);
+  const p = lab.prediction || {};
+  const steps = lab.steps || [];
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="sb-card rounded-2xl p-6 border-2 border-sb-accent/30 sb-glow">
+        <div className="flex items-center gap-2 text-sb-accent mb-2">
+          <FlaskConical className="w-5 h-5" />
+          <span className="text-[10px] uppercase tracking-[0.2em]">Virtual Lab</span>
+        </div>
+        <h2 className="font-display text-xl text-white">{lab.title}</h2>
+        <p className="text-sm text-orange-50/70 mt-2 leading-relaxed">{lab.objective}</p>
+        {lab.safety && <p className="text-xs text-sb-yellow mt-3">⚠ {lab.safety}</p>}
+      </div>
+
+      {lab.materials?.length > 0 && (
+        <div className="sb-card rounded-2xl p-6">
+          <p className="text-xs uppercase tracking-wide text-sb-accent/60 mb-3">Materials</p>
+          <div className="flex flex-wrap gap-2">
+            {lab.materials.map((m, i) => (
+              <span key={i} className="text-xs bg-sb-elevated border border-sb-border rounded-full px-3 py-1 text-orange-50/80">{m}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {phase === "run" && (
+        <div className="sb-card rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs uppercase tracking-wide text-sb-accent/60">Step {step + 1} of {steps.length}</p>
+            <div className="h-1 w-32 bg-sb-border rounded-full overflow-hidden">
+              <div className="h-full bg-sb-accent transition-[width] duration-300" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+            </div>
+          </div>
+          <p data-testid="lab-step" className="font-body text-lg text-orange-50 leading-relaxed min-h-[3rem]">{steps[step]}</p>
+          <div className="flex justify-between mt-6">
+            <button disabled={step === 0} onClick={() => setStep(step - 1)} className="text-sb-accent/60 disabled:opacity-30">Back</button>
+            {step < steps.length - 1 ? (
+              <button data-testid="lab-next" onClick={() => setStep(step + 1)} className="bg-sb-accent text-sb-base px-6 py-2.5 rounded-full font-medium">Next step</button>
+            ) : (
+              <button data-testid="lab-predict" onClick={() => setPhase("predict")} className="bg-sb-accent text-sb-base px-6 py-2.5 rounded-full font-medium">Make a prediction</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {phase === "predict" && (
+        <div className="sb-card rounded-2xl p-6">
+          <p className="font-display text-orange-100 mb-4">{p.question}</p>
+          <div className="space-y-2.5">
+            {(p.options || []).map((opt, i) => (
+              <button key={i} data-testid={`lab-option-${i}`} onClick={() => setChoice(i)}
+                className={`w-full text-left px-4 py-2.5 rounded-lg border transition-colors ${choice === i ? "border-sb-accent bg-sb-accent/15 text-orange-50" : "border-sb-border text-orange-50/70 hover:border-sb-accent/50"}`}>{opt}</button>
+            ))}
+          </div>
+          <button data-testid="lab-check" disabled={choice == null} onClick={() => setPhase("result")}
+            className="w-full mt-5 bg-sb-accent text-sb-base py-3 rounded-full font-medium disabled:opacity-40">Run experiment</button>
+        </div>
+      )}
+
+      {phase === "result" && (
+        <div className="sb-card rounded-2xl p-6 border-2 border-sb-accent/40 sb-glow">
+          <div className="flex items-center gap-2 mb-3">
+            {choice === p.answer_index
+              ? <><CheckCircle2 className="w-6 h-6 text-sb-yellow" /><span className="font-display text-white">Great prediction!</span></>
+              : <><FlaskConical className="w-6 h-6 text-sb-accent" /><span className="font-display text-white">Surprising result!</span></>}
+          </div>
+          <p className="text-sm text-orange-50/80 leading-relaxed">{p.result}</p>
+          <button data-testid="lab-restart" onClick={() => { setStep(0); setPhase("run"); setChoice(null); }}
+            className="mt-5 px-5 py-2.5 rounded-full border border-sb-border text-sb-accent text-sm hover:border-sb-accent">Run again</button>
         </div>
       )}
     </div>
