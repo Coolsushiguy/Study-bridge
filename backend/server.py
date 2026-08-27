@@ -501,6 +501,29 @@ async def submit_exercise(body: ExerciseSubmit, user: dict = Depends(get_current
     return {"score": score, "correct": correct, "total": total, "state": state, "best_score": best}
 
 
+class WatchedBody(BaseModel):
+    subject: str
+    chapter: str
+    video_index: int
+
+
+@api.post("/videos/watched")
+async def mark_watched(body: WatchedBody, user: dict = Depends(get_current_user)):
+    await db.progress.update_one(
+        {"user_id": user["id"], "subject": body.subject, "chapter": body.chapter},
+        {
+            "$addToSet": {"watched_videos": body.video_index},
+            "$setOnInsert": {"best_score": 0, "last_score": 0, "state": "in-progress"},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+        },
+        upsert=True,
+    )
+    prog = await db.progress.find_one(
+        {"user_id": user["id"], "subject": body.subject, "chapter": body.chapter}
+    )
+    return {"watched_videos": sorted(prog.get("watched_videos", []))}
+
+
 # ---------------- assessments ----------------
 ASSESSMENTS = {
     "english": {

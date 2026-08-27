@@ -12,13 +12,25 @@ export default function Chapter() {
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
+  const [watched, setWatched] = useState([]);
 
   useEffect(() => {
     setData(null);
     api.get(`/subjects/${subjectKey}/chapters/${chapterKey}`)
-      .then(({ data }) => { setData(data); setAnswers(new Array(data.content.exercises.length).fill(null)); })
+      .then(({ data }) => { setData(data); setAnswers(new Array(data.content.exercises.length).fill(null)); setWatched(data.progress?.watched_videos || []); })
       .catch((e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not load chapter"));
   }, [subjectKey, chapterKey]);
+
+  const openVideo = async (v, i) => {
+    setActiveVideo(v);
+    if (!watched.includes(i)) {
+      setWatched((w) => [...w, i]);
+      try {
+        const { data } = await api.post("/videos/watched", { subject: subjectKey, chapter: chapterKey, video_index: i });
+        setWatched(data.watched_videos);
+      } catch { /* non-blocking */ }
+    }
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -154,20 +166,32 @@ export default function Chapter() {
               <p className="text-xs text-sb-accent/40 mt-2">Safe search results only · no external links leave StudyBridge.</p>
             </div>
           )}
-          <p className="text-sm text-orange-50/50">Watch-and-learn · {content.videos.length} short videos for this chapter.</p>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <p className="text-sm text-orange-50/50">Watch-and-learn · {content.videos.length} short videos for this chapter.</p>
+            <div className="flex items-center gap-3">
+              <span data-testid="watched-count" className="text-xs text-sb-accent font-medium">You've watched {watched.length}/{content.videos.length}</span>
+              <div className="h-1.5 w-40 bg-sb-border rounded-full overflow-hidden">
+                <div className="h-full bg-sb-accent transition-[width] duration-500" style={{ width: `${content.videos.length ? (watched.length / content.videos.length) * 100 : 0}%` }} />
+              </div>
+            </div>
+          </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {content.videos.map((v, i) => (
-              <button key={i} data-testid={`video-${i}`} onClick={() => setActiveVideo(v)}
-                className="sb-card rounded-2xl p-5 text-left hover:-translate-y-1 hover:border-sb-accent/30 transition-[transform,border-color] duration-300 sb-fade-up"
-                style={{ animationDelay: `${i * 0.03}s` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-full bg-sb-accent/15 flex items-center justify-center"><Play className="w-4 h-4 text-sb-accent ml-0.5" /></div>
-                  <span className="text-[10px] text-sb-accent/50">{v.duration}</span>
-                </div>
-                <p className="font-display text-sm text-orange-100 leading-snug">{v.title}</p>
-                <p className="text-xs text-orange-50/50 mt-1.5 leading-relaxed">{v.description}</p>
-              </button>
-            ))}
+            {content.videos.map((v, i) => {
+              const seen = watched.includes(i);
+              return (
+                <button key={i} data-testid={`video-${i}`} onClick={() => openVideo(v, i)}
+                  className={`sb-card rounded-2xl p-5 text-left hover:-translate-y-1 hover:border-sb-accent/30 transition-[transform,border-color] duration-300 sb-fade-up ${seen ? "border-sb-accent/40" : ""}`}
+                  style={{ animationDelay: `${i * 0.03}s` }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-full bg-sb-accent/15 flex items-center justify-center"><Play className="w-4 h-4 text-sb-accent ml-0.5" /></div>
+                    {seen ? <span data-testid={`video-watched-${i}`} className="flex items-center gap-1 text-[10px] text-sb-yellow"><CheckCircle2 className="w-3.5 h-3.5" /> Watched</span>
+                          : <span className="text-[10px] text-sb-accent/50">{v.duration}</span>}
+                  </div>
+                  <p className="font-display text-sm text-orange-100 leading-snug">{v.title}</p>
+                  <p className="text-xs text-orange-50/50 mt-1.5 leading-relaxed">{v.description}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
