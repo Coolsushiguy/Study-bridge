@@ -776,6 +776,27 @@ async def meta_states():
     return {"states": US_STATES}
 
 
+@api.get("/career/retake-status")
+async def career_retake_status(user: dict = Depends(get_current_user)):
+    if user.get("grade_int", 0) < 6:
+        return {"applicable": False, "due": False}
+    career = (user.get("assessments") or {}).get("career")
+    if not career or not career.get("completed_at"):
+        return {"applicable": True, "due": False, "taken": False}
+    last = datetime.fromisoformat(career["completed_at"])
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    next_due = last + timedelta(days=730)
+    now = datetime.now(timezone.utc)
+    return {
+        "applicable": True,
+        "taken": True,
+        "due": now >= next_due,
+        "last_taken": career["completed_at"],
+        "next_due": next_due.isoformat(),
+    }
+
+
 @api.get("/")
 async def root():
     return {"message": "StudyBridge API"}

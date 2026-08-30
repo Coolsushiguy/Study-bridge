@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { BookOpen, Users, TrendingUp, ArrowRight, Sparkles } from "lucide-react";
+import { BookOpen, Users, TrendingUp, ArrowRight, Sparkles, Compass } from "lucide-react";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [subjects, setSubjects] = useState([]);
+  const [career, setCareer] = useState(null);
 
   useEffect(() => {
     api.get("/stats").then(({ data }) => setStats(data)).catch(() => {});
     api.get("/subjects").then(({ data }) => setSubjects(data.subjects)).catch(() => {});
+    api.get("/career/retake-status").then(({ data }) => setCareer(data)).catch(() => {});
   }, []);
 
   const consentPending = user?.account_type === "parent_led" && !user?.consent_verified;
+  const nextDueLabel = career?.next_due ? new Date(career.next_due).toLocaleDateString() : "";
 
   return (
     <div className="space-y-8">
@@ -28,6 +31,17 @@ export default function Dashboard() {
         <div data-testid="consent-warning" className="sb-card rounded-2xl p-5 border-sb-accent/40 sb-glow">
           <p className="text-sb-accent font-medium">Parental consent pending</p>
           <p className="text-sm text-orange-50/60 mt-1">Ask a parent to open the consent link we emailed to complete COPPA verification.</p>
+        </div>
+      )}
+
+      {career?.due && (
+        <div data-testid="career-retake-nudge" className="sb-card rounded-2xl p-5 border-2 border-sb-accent/40 sb-glow flex items-center gap-4 flex-wrap">
+          <div className="w-10 h-10 rounded-full bg-sb-accent/15 flex items-center justify-center shrink-0"><Compass className="w-5 h-5 text-sb-accent" /></div>
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-sb-accent font-medium">Time to refresh your Career test</p>
+            <p className="text-sm text-orange-50/70 mt-1">It's been about 2 years since your last one — your interests may have grown. Retaking keeps your path up to date.</p>
+          </div>
+          <Link to="/onboarding" data-testid="career-retake-btn" className="bg-sb-accent text-sb-base px-5 py-2.5 rounded-full text-sm font-medium hover:bg-sb-accentHover transition-colors">Retake now</Link>
         </div>
       )}
 
