@@ -8,6 +8,7 @@ import os
 import json
 import uuid
 import secrets
+import random
 import logging
 import re
 from datetime import datetime, timezone, timedelta
@@ -23,6 +24,7 @@ from pydantic import BaseModel, Field, EmailStr
 from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 
 from curriculum_data import SUBJECTS, SUBJECT_MAP, get_chapter, US_STATES
+from assessment_data import BANKS, CAREER_QUESTIONS, CAREER_LIKERT, TEST_LENGTHS, TITLES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("studybridge")
@@ -551,90 +553,38 @@ async def complete_chapter(body: ChapterRef, user: dict = Depends(get_current_us
     return {"completed": True}
 
 
-# ---------------- assessments ----------------
-ASSESSMENTS = {
-    "english": {
-        "title": "English Assessment",
-        "questions": [
-            {"q": "Which word is a noun?", "options": ["run", "happy", "dog", "quickly"], "a": 2},
-            {"q": "Choose the correct spelling.", "options": ["recieve", "receive", "receeve", "receve"], "a": 1},
-            {"q": "What is the past tense of 'go'?", "options": ["goed", "gone", "went", "going"], "a": 2},
-            {"q": "Which sentence is punctuated correctly?", "options": ["its a nice day", "It's a nice day.", "Its a nice day", "it's a nice day"], "a": 1},
-            {"q": "A synonym for 'happy' is:", "options": ["sad", "joyful", "angry", "tired"], "a": 1},
-        ],
-    },
-    "overall": {
-        "title": "Overall Assessment",
-        "questions": [
-            {"q": "What is 7 x 8?", "options": ["54", "56", "64", "48"], "a": 1},
-            {"q": "Which planet is closest to the Sun?", "options": ["Venus", "Earth", "Mercury", "Mars"], "a": 2},
-            {"q": "What is 3/4 as a decimal?", "options": ["0.34", "0.75", "0.43", "0.7"], "a": 1},
-            {"q": "Who wrote 'Romeo and Juliet'?", "options": ["Dickens", "Shakespeare", "Twain", "Poe"], "a": 1},
-            {"q": "Water freezes at what temperature (C)?", "options": ["0", "32", "100", "-10"], "a": 0},
-            {"q": "What is the capital of France?", "options": ["Rome", "Madrid", "Paris", "Berlin"], "a": 2},
-        ],
-    },
-    "career": {
-        "title": "Career Interests",
-        "questions": [
-            {"q": "I enjoy solving math puzzles.", "options": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "a": -1},
-            {"q": "I like writing stories or essays.", "options": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "a": -1},
-            {"q": "I am curious about how machines work.", "options": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "a": -1},
-            {"q": "I enjoy helping and teaching others.", "options": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "a": -1},
-            {"q": "I like drawing, music, or design.", "options": ["Strongly disagree", "Disagree", "Agree", "Strongly agree"], "a": -1},
-        ],
-    },
-}
+# ---------------- assessments (adaptive) ----------------
+def _finalize_result(test_type, responses):
+    """responses: list of {d, correct} for scored tests, or {answer, interest} for career."""
+    if test_type == "career":
+        tally = {}
+        for r in responses:
+            tally[r["interest"]] = tally.get(r["interest"], 0) + r["answer"]
+        ranked = sorted(tally.items(), key=lambda x: x[1], reverse=True)
+        return {"top_interests": [name for name, _ in ranked[:3]], "total": len(responses)}
+    earned = sum(r["d"] for r in responses if r["correct"])
+    possible = sum(r["d"] for r in responses) or 1
+    correct = sum(1 for r in responses if r["correct"])
+    total = len(responses)
+    ratio = earned / possible
+    if test_type == "overall":
+        scaled = round(100 + ratio * 900)
+        mapped_grade = max(0, min(12, round(ratio * 12)))
+        return {"scaled_score": scaled, "mapped_grade": mapped_grade, "correct": correct, "total": total}
+    level = "Advanced" if ratio >= 0.75 else "Proficient" if ratio >= 0.5 else "Developing"
+    return {"level": level, "correct": correct, "total": total,
+            "suggested_books": ["Charlotte's Web", "Wonder", "Holes", "Matilda", "Hatchet"]}
 
 
-@api.get("/assessments/{test_type}")
-async def get_assessment(test_type: str, user: dict = Depends(get_current_user)):
-    a = ASSESSMENTS.get(test_type)
-    if not a:
-        raise HTTPException(status_code=404, detail="Assessment not found")
-    if test_type == "career" and user.get("grade_int", 0) < 6:
-        raise HTTPException(status_code=403, detail="Career test is for grade 6 and up.")
-    questions = [{"q": q["q"], "options": q["options"]} for q in a["questions"]]
-    return {"title": a["title"], "test_type": test_type, "questions": questions}
-
-
-@api.post("/assessments/submit")
-async def submit_assessment(body: AssessmentSubmit, user: dict = Depends(get_current_user)):
-    a = ASSESSMENTS.get(body.test_type)
-    if not a:
-        raise HTTPException(status_code=404, detail="Assessment not found")
-    result = {}
-    if body.test_type == "career":
-        interests = ["STEM/Math", "Writing/Humanities", "Engineering", "Education/Care", "Arts/Design"]
-        scores = list(zip(interests, body.answers))
-        scores.sort(key=lambda x: x[1], reverse=True)
-        result = {"top_interests": [s[0] for s in scores[:3]]}
-    else:
-        correct = sum(
-            1 for i, q in enumerate(a["questions"])
-            if i < len(body.answers) and body.answers[i] == q["a"]
-        )
-        total = len(a["questions"])
-        pct = correct / total if total else 0
-        if body.test_type == "overall":
-            scaled = round(100 + pct * 900)
-            mapped_grade = max(0, min(12, round(pct * 12)))
-            result = {"scaled_score": scaled, "mapped_grade": mapped_grade, "correct": correct, "total": total}
-        else:
-            level = "Advanced" if pct >= 0.8 else "Proficient" if pct >= 0.6 else "Developing"
-            result = {"level": level, "correct": correct, "total": total,
-                      "suggested_books": ["Charlotte's Web", "Wonder", "Holes", "Matilda", "Hatchet"]}
-
+async def _apply_assessment_result(user, test_type, result):
     assessments = user.get("assessments", {})
-    assessments[body.test_type] = {
-        "result": result,
-        "completed_at": datetime.now(timezone.utc).isoformat(),
-    }
+    assessments[test_type] = {"result": result, "completed_at": datetime.now(timezone.utc).isoformat()}
     update = {"assessments": assessments}
     required = {"english", "overall"}
     if user.get("grade_int", 0) >= 6:
         required.add("career")
-    if required.issubset(set(assessments.keys())):
+    onboarding_complete = required.issubset(set(assessments.keys()))
+    if onboarding_complete:
         update["onboarding_complete"] = True
         update["needs_assessment"] = False
         overall = assessments.get("overall", {}).get("result", {})
@@ -644,7 +594,109 @@ async def submit_assessment(body: AssessmentSubmit, user: dict = Depends(get_cur
             weights["english"] = 1.5
         update["curriculum_weights"] = weights
     await db.users.update_one({"id": user["id"]}, {"$set": update})
-    return {"result": result, "onboarding_complete": update.get("onboarding_complete", False)}
+    return onboarding_complete
+
+
+def _pick_question(test_type, difficulty, asked_indexes):
+    """Adaptive: choose an unused question at the target difficulty, else the nearest available."""
+    bank = BANKS[test_type]
+    available = [i for i in range(len(bank)) if i not in asked_indexes]
+    if not available:
+        return None
+    available.sort(key=lambda i: abs(bank[i]["d"] - difficulty))
+    best_dist = abs(bank[available[0]]["d"] - difficulty)
+    candidates = [i for i in available if abs(bank[i]["d"] - difficulty) == best_dist]
+    return random.choice(candidates)
+
+
+def _public_question(test_type, idx, number, total, difficulty):
+    if test_type == "career":
+        q = CAREER_QUESTIONS[idx]
+        return {"q": q["q"], "options": CAREER_LIKERT, "number": number, "total": total, "difficulty": None}
+    q = BANKS[test_type][idx]
+    return {"q": q["q"], "options": q["options"], "number": number, "total": total, "difficulty": difficulty}
+
+
+@api.post("/assessments/start")
+async def start_assessment(body: dict, user: dict = Depends(get_current_user)):
+    test_type = body.get("test_type")
+    if test_type not in TEST_LENGTHS:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    if test_type == "career" and user.get("grade_int", 0) < 6:
+        raise HTTPException(status_code=403, detail="Career test is for grade 6 and up.")
+    total = TEST_LENGTHS[test_type]
+    session_id = str(uuid.uuid4())
+    if test_type == "career":
+        first_idx, difficulty = 0, None
+    else:
+        difficulty = 3
+        first_idx = _pick_question(test_type, difficulty, [])
+    session = {
+        "id": session_id, "user_id": user["id"], "test_type": test_type,
+        "total": total, "difficulty": difficulty, "asked": [first_idx],
+        "responses": [], "current_idx": first_idx, "completed": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.assessment_sessions.insert_one(session)
+    return {
+        "session_id": session_id, "test_type": test_type, "title": TITLES[test_type],
+        "adaptive": test_type != "career",
+        "question": _public_question(test_type, first_idx, 1, total, difficulty),
+    }
+
+
+@api.post("/assessments/answer")
+async def answer_assessment(body: dict, user: dict = Depends(get_current_user)):
+    session_id = body.get("session_id")
+    answer_index = body.get("answer_index")
+    session = await db.assessment_sessions.find_one({"id": session_id, "user_id": user["id"]})
+    if not session:
+        raise HTTPException(status_code=404, detail="Assessment session not found")
+    if session["completed"]:
+        raise HTTPException(status_code=400, detail="Assessment already completed")
+    test_type = session["test_type"]
+    cur_idx = session["current_idx"]
+    responses = session["responses"]
+    difficulty = session.get("difficulty") or 3
+
+    if test_type == "career":
+        q = CAREER_QUESTIONS[cur_idx]
+        responses.append({"answer": int(answer_index), "interest": q["interest"]})
+    else:
+        q = BANKS[test_type][cur_idx]
+        correct = int(answer_index) == q["a"]
+        responses.append({"d": q["d"], "correct": correct})
+        difficulty = min(5, difficulty + 1) if correct else max(1, difficulty - 1)
+
+    # Finished?
+    if len(responses) >= session["total"]:
+        result = _finalize_result(test_type, responses)
+        onboarding_complete = await _apply_assessment_result(user, test_type, result)
+        await db.assessment_sessions.update_one(
+            {"id": session_id}, {"$set": {"completed": True, "responses": responses, "result": result}}
+        )
+        return {"done": True, "result": result, "onboarding_complete": onboarding_complete}
+
+    # Next question
+    if test_type == "career":
+        next_idx = len(responses)  # sequential
+    else:
+        next_idx = _pick_question(test_type, difficulty, session["asked"])
+        if next_idx is None:  # bank exhausted early
+            result = _finalize_result(test_type, responses)
+            onboarding_complete = await _apply_assessment_result(user, test_type, result)
+            await db.assessment_sessions.update_one(
+                {"id": session_id}, {"$set": {"completed": True, "responses": responses, "result": result}}
+            )
+            return {"done": True, "result": result, "onboarding_complete": onboarding_complete}
+
+    await db.assessment_sessions.update_one(
+        {"id": session_id},
+        {"$set": {"difficulty": difficulty, "current_idx": next_idx, "responses": responses},
+         "$push": {"asked": next_idx}},
+    )
+    number = len(responses) + 1
+    return {"done": False, "question": _public_question(test_type, next_idx, number, session["total"], difficulty)}
 
 
 # ---------------- AI helper ----------------
