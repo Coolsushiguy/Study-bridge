@@ -373,7 +373,8 @@ async def subject_detail(subject_key: str, user: dict = Depends(get_current_user
     for ch in subject["chapters"]:
         p = prog_map.get(ch["key"], {})
         chapters.append({**ch, "best_score": p.get("best_score", 0),
-                         "state": p.get("state", "locked" if False else "new")})
+                         "completed": p.get("completed", False),
+                         "state": p.get("state", "new")})
     return {"subject": subject, "chapters": chapters}
 
 
@@ -522,6 +523,32 @@ async def mark_watched(body: WatchedBody, user: dict = Depends(get_current_user)
         {"user_id": user["id"], "subject": body.subject, "chapter": body.chapter}
     )
     return {"watched_videos": sorted(prog.get("watched_videos", []))}
+
+
+class ChapterRef(BaseModel):
+    subject: str
+    chapter: str
+
+
+@api.post("/labs/complete")
+async def complete_lab(body: ChapterRef, user: dict = Depends(get_current_user)):
+    await db.progress.update_one(
+        {"user_id": user["id"], "subject": body.subject, "chapter": body.chapter},
+        {"$set": {"lab_done": True, "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$setOnInsert": {"best_score": 0, "last_score": 0, "state": "in-progress"}},
+        upsert=True,
+    )
+    return {"lab_done": True}
+
+
+@api.post("/chapters/complete")
+async def complete_chapter(body: ChapterRef, user: dict = Depends(get_current_user)):
+    await db.progress.update_one(
+        {"user_id": user["id"], "subject": body.subject, "chapter": body.chapter},
+        {"$set": {"completed": True, "completed_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"completed": True}
 
 
 # ---------------- assessments ----------------

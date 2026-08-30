@@ -13,13 +13,35 @@ export default function Chapter() {
   const [submitting, setSubmitting] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
   const [watched, setWatched] = useState([]);
+  const [labDone, setLabDone] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
 
   useEffect(() => {
     setData(null);
     api.get(`/subjects/${subjectKey}/chapters/${chapterKey}`)
-      .then(({ data }) => { setData(data); setAnswers(new Array(data.content.exercises.length).fill(null)); setWatched(data.progress?.watched_videos || []); })
+      .then(({ data }) => { setData(data); setAnswers(new Array(data.content.exercises.length).fill(null)); setWatched(data.progress?.watched_videos || []); setLabDone(!!data.progress?.lab_done); setCompleted(!!data.progress?.completed); })
       .catch((e) => toast.error(formatApiError(e.response?.data?.detail) || "Could not load chapter"));
   }, [subjectKey, chapterKey]);
+
+  useEffect(() => {
+    if (!data || completed) return;
+    const best = result?.best_score ?? data.progress?.best_score ?? 0;
+    const passed = best >= 80;
+    const allWatched = data.content.videos.length > 0 && watched.length >= data.content.videos.length;
+    const labOk = !data.content.lab || labDone;
+    if (passed && allWatched && labOk) {
+      setCompleted(true); setJustCompleted(true);
+      api.post("/chapters/complete", { subject: subjectKey, chapter: chapterKey }).catch(() => {});
+      toast.success("Chapter complete! 🎉");
+    }
+  }, [data, watched, labDone, result, completed, subjectKey, chapterKey]);
+
+  const onLabComplete = () => {
+    if (labDone) return;
+    setLabDone(true);
+    api.post("/labs/complete", { subject: subjectKey, chapter: chapterKey }).catch(() => {});
+  };
 
   const openVideo = async (v, i) => {
     setActiveVideo(v);
@@ -69,6 +91,32 @@ export default function Chapter() {
         <p className="text-xs uppercase tracking-[0.2em] text-sb-accent/50">{subject.name}</p>
         <h1 className="font-display text-3xl sm:text-4xl text-white mt-1">{chapter.title}</h1>
       </div>
+
+      {(() => {
+        const best = result?.best_score ?? data.progress?.best_score ?? 0;
+        const items = [
+          { label: "Exercises passed (80%+)", done: best >= 80 },
+          { label: `Videos watched (${watched.length}/${content.videos.length})`, done: content.videos.length > 0 && watched.length >= content.videos.length },
+        ];
+        if (content.lab) items.push({ label: "Lab completed", done: labDone });
+        return (
+          <div data-testid="completion-panel" className={`sb-card rounded-2xl p-5 sm:p-6 border-2 ${completed ? "border-sb-accent/50 sb-glow" : "border-sb-border"} ${justCompleted ? "sb-fade-up" : ""}`}>
+            <div className="flex items-center gap-2 mb-3">
+              {completed ? <Trophy className="w-5 h-5 text-sb-accent" /> : <ListChecks className="w-5 h-5 text-sb-accent/70" />}
+              <p data-testid="completion-status" className="font-display text-sm text-orange-100">
+                {completed ? "Chapter complete!" : "Finish this chapter"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {items.map((it, i) => (
+                <span key={i} className={`flex items-center gap-1.5 text-sm ${it.done ? "text-sb-yellow" : "text-orange-50/50"}`}>
+                  <CheckCircle2 className={`w-4 h-4 ${it.done ? "text-sb-yellow" : "text-orange-50/25"}`} /> {it.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="flex gap-2 border-b border-sb-border">
         {TABS.map((t) => (
@@ -196,18 +244,20 @@ export default function Chapter() {
         </div>
       )}
 
-      {tab === "labs" && content.lab && <LabRunner lab={content.lab} />}
+      {tab === "labs" && content.lab && <LabRunner lab={content.lab} onComplete={onLabComplete} />}
     </div>
   );
 }
 
 
-function LabRunner({ lab }) {
+function LabRunner({ lab, onComplete }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState("run"); // run -> predict -> result
   const [choice, setChoice] = useState(null);
   const p = lab.prediction || {};
   const steps = lab.steps || [];
+
+  const runExperiment = () => { setPhase("result"); onComplete && onComplete(); };
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -261,7 +311,7 @@ function LabRunner({ lab }) {
                 className={`w-full text-left px-4 py-2.5 rounded-lg border transition-colors ${choice === i ? "border-sb-accent bg-sb-accent/15 text-orange-50" : "border-sb-border text-orange-50/70 hover:border-sb-accent/50"}`}>{opt}</button>
             ))}
           </div>
-          <button data-testid="lab-check" disabled={choice == null} onClick={() => setPhase("result")}
+          <button data-testid="lab-check" disabled={choice == null} onClick={runExperiment}
             className="w-full mt-5 bg-sb-accent text-sb-base py-3 rounded-full font-medium disabled:opacity-40">Run experiment</button>
         </div>
       )}

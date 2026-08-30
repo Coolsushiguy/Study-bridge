@@ -41,7 +41,7 @@ export default function Subject() {
                 <st.Icon className={`w-5 h-5 ${st.color}`} />
               </div>
               <div className="flex items-center justify-between mt-5">
-                <span className={`text-xs ${st.color}`}>{st.label}</span>
+                <span className={`text-xs ${st.color}`}>{ch.completed ? "Complete ✓" : st.label}</span>
                 {ch.best_score > 0 && <span className="text-xs text-orange-50/50">Best {ch.best_score}%</span>}
               </div>
             </Link>
