@@ -24,7 +24,11 @@ from pydantic import BaseModel, Field, EmailStr
 from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 
 from curriculum_data import SUBJECTS, SUBJECT_MAP, get_chapter, US_STATES
-from assessment_data import BANKS, CAREER_QUESTIONS, CAREER_LIKERT, TEST_LENGTHS, TITLES
+from assessment_data import (
+    BANKS, CAREER_QUESTIONS, CAREER_LIKERT, TEST_LENGTHS, TITLES,
+    grade_to_difficulty, score_to_level_label, score_to_grade,
+    SCORE_MIN, SCORE_MAX,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("studybridge")
@@ -568,9 +572,9 @@ def _finalize_result(test_type, responses):
     total = len(responses)
     ratio = earned / possible
     if test_type == "overall":
-        scaled = round(100 + ratio * 900)
-        mapped_grade = max(0, min(12, round(ratio * 12)))
-        return {"scaled_score": scaled, "mapped_grade": mapped_grade, "correct": correct, "total": total}
+        scaled = round(SCORE_MIN + ratio * (SCORE_MAX - SCORE_MIN))
+        return {"scaled_score": scaled, "mapped_grade": score_to_grade(scaled),
+                "level_label": score_to_level_label(scaled), "correct": correct, "total": total}
     level = "Advanced" if ratio >= 0.75 else "Proficient" if ratio >= 0.5 else "Developing"
     return {"level": level, "correct": correct, "total": total,
             "suggested_books": ["Charlotte's Web", "Wonder", "Holes", "Matilda", "Hatchet"]}
@@ -629,12 +633,12 @@ async def start_assessment(body: dict, user: dict = Depends(get_current_user)):
     if test_type == "career":
         first_idx, difficulty = 0, None
     else:
-        difficulty = 3
+        difficulty = grade_to_difficulty(user.get("grade_int", 0))
         first_idx = _pick_question(test_type, difficulty, [])
     session = {
         "id": session_id, "user_id": user["id"], "test_type": test_type,
-        "total": total, "difficulty": difficulty, "asked": [first_idx],
-        "responses": [], "current_idx": first_idx, "completed": False,
+        "total": total, "difficulty": difficulty, "start_difficulty": difficulty,
+        "asked": [first_idx], "responses": [], "current_idx": first_idx, "completed": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.assessment_sessions.insert_one(session)
@@ -658,6 +662,7 @@ async def answer_assessment(body: dict, user: dict = Depends(get_current_user)):
     cur_idx = session["current_idx"]
     responses = session["responses"]
     difficulty = session.get("difficulty") or 3
+    start_difficulty = session.get("start_difficulty") or difficulty
 
     if test_type == "career":
         q = CAREER_QUESTIONS[cur_idx]
@@ -666,7 +671,11 @@ async def answer_assessment(body: dict, user: dict = Depends(get_current_user)):
         q = BANKS[test_type][cur_idx]
         correct = int(answer_index) == q["a"]
         responses.append({"d": q["d"], "correct": correct})
-        difficulty = min(5, difficulty + 1) if correct else max(1, difficulty - 1)
+        # First 2 questions stay at the grade-calibrated level; adapt from Q3 onward.
+        if len(responses) < 2:
+            difficulty = start_difficulty
+        else:
+            difficulty = min(5, difficulty + 1) if correct else max(1, difficulty - 1)
 
     # Finished?
     if len(responses) >= session["total"]:

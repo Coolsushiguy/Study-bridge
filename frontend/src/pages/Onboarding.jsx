@@ -24,10 +24,10 @@ export default function Onboarding() {
     if (!user) return;
     const done = user.assessments || {};
     const list = [
-      { key: "english", title: "English", desc: "Adaptive leveling · 20 questions + book picks" },
-      { key: "overall", title: "Overall", desc: "Adaptive · 25 questions, maps you to a grade" },
+      { key: "english", title: "English", desc: "Adaptive leveling · 30 questions + book picks" },
+      { key: "overall", title: "Overall", desc: "Adaptive · 50 questions, scored 50–1200" },
     ];
-    if (needsCareer) list.push({ key: "career", title: "Career", desc: "Interest survey · 20 questions (grade 6+)" });
+    if (needsCareer) list.push({ key: "career", title: "Career", desc: "Interest survey · 30 questions (grade 6+)" });
     setTests(list.map((t) => ({ ...t, done: !!done[t.key] })));
   }, [user, needsCareer]);
 
@@ -69,7 +69,7 @@ export default function Onboarding() {
         <div className="w-full max-w-2xl sb-card rounded-3xl p-8 sm:p-10 sb-fade-up">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs uppercase tracking-[0.2em] text-sb-accent/60">{title}</span>
-            <span className="text-sm text-sb-accent/80" data-testid="question-counter">{question.number} / {question.total}</span>
+            <span className="text-sm text-orange-100 font-medium" data-testid="question-counter">{question.number} / {question.total}</span>
           </div>
           {adaptive && question.difficulty != null && (
             <div className="flex items-center gap-2 mb-4" data-testid="difficulty-indicator">
@@ -79,7 +79,7 @@ export default function Onboarding() {
                   <span key={lvl} className={`w-6 h-1.5 rounded-full ${lvl <= question.difficulty ? "bg-sb-accent" : "bg-sb-border"}`} />
                 ))}
               </div>
-              <span className="text-xs text-sb-accent/80 ml-1 font-medium">Difficulty {question.difficulty}/5</span>
+              <span className="text-xs text-sb-accent ml-1 font-semibold">Difficulty {question.difficulty}/5</span>
             </div>
           )}
           <div className="h-1 bg-sb-border rounded-full mb-8 overflow-hidden">
@@ -101,7 +101,7 @@ export default function Onboarding() {
             </button>
           </div>
           {adaptive && (
-            <p className="text-center text-[11px] text-sb-accent/40 mt-5">Answer correctly and the questions get harder.</p>
+            <p className="text-center text-xs text-sb-accent/70 mt-5">Answer correctly and the questions get harder.</p>
           )}
         </div>
       </div>
@@ -116,7 +116,8 @@ export default function Onboarding() {
           <CheckCircle2 className="w-12 h-12 text-sb-yellow mx-auto mb-4" />
           <h2 className="font-display text-xl text-white mb-4">Nice work!</h2>
           <div className="text-orange-50/70 text-sm space-y-1 mb-8" data-testid="assess-result">
-            {result.scaled_score != null && <p>Score: <b className="text-sb-accent">{result.scaled_score}</b> / 1000 · Mapped grade {result.mapped_grade}</p>}
+            {result.scaled_score != null && <p>Score: <b className="text-sb-accent">{result.scaled_score}</b> / 1200</p>}
+            {result.level_label && <p className="text-sb-accent font-medium">{result.level_label}</p>}
             {result.level && <p>Level: <b className="text-sb-accent">{result.level}</b></p>}
             {result.correct != null && <p className="text-xs text-orange-50/50">{result.correct} correct out of {result.total}</p>}
             {result.suggested_books && <p className="mt-2">Suggested reads: {result.suggested_books.join(", ")}</p>}

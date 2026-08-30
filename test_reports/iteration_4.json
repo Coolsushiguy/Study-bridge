@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only E2E verification of the UPDATED grade-calibrated adaptive onboarding assessments. Registered fresh students via UI (grade 12 self-signup, grade 1 homeschool, grade 5 homeschool). Verified: (1) grade-calibrated start difficulty in the UI difficulty-indicator - grade 12 => 'Difficulty 5/5' with 5 filled bars on Q1 and Q2, grade 5 => 3/5 on Q1+Q2, grade 1 => 1/5 on Q1+Q2; difficulty then adapts (observed all-wrong trail 5,5,4,3,2,1 floored at 1). (2) Question counts served one-by-one through the UI: English exactly 30 (counters 1..30), Overall exactly 50, Career exactly 30; the last question's button switched to data-testid=assess-submit, earlier ones assess-next. (3) Overall result screen (assess-result) showed 'Score: 112 / 1200' + level label 'Grade 1 level' + '4 correct out of 50'. (4) Full onboarding gate: onboarding-continue disabled until English+Overall+Career all complete, then label became 'Enter StudyBridge' and navigated to /dashboard (toast 'Onboarding complete! Curriculum locked in.'). (5) Career test showed NO difficulty-indicator on any of the 30 questions and returned 'Top interests: STEM & Math, Writing & Humanities, Engineering & Tech'. English result showed Level + 5 suggested books. No console errors, no failed API calls.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Onboarding test view", "issues": ["'Difficulty N/5' label (text-sb-accent/80) and the hint 'Answer correctly and the questions get harder.' (text-sb-accent/40) are very low contrast on the dark background - the hint is nearly invisible at 11px/40% opacity", "Question counter 'X / 50' at text-sb-accent/80 is also faint"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py"],
+  "action_items": [
+    "Spec/UX note (not a crash): backend sets needs_assessment = grade_int >= 5, so a K-4 student (incl. grade 1 homeschool) is created with onboarding_complete=true and is redirected straight to /dashboard after signup - the requested 'grade 1 signup -> onboarding shows difficulty 1' scenario is NOT reachable through the normal flow. Difficulty 1/5 was confirmed only by navigating that account directly to /onboarding. Decide whether K-4 should get the assessments (then change the >=5 threshold) or whether /onboarding should be blocked for them.",
+    "Optional: raise contrast/size of difficulty label, question counter and adaptive hint text in Onboarding.jsx"
+  ],
+  "critical_code_review_comments": [
+    "Signup.jsx useEffect auto-switches student->parent tab when grade<6 and homeschool unchecked; the checkbox must be ticked BEFORE selecting a K-5 grade, otherwise the user is silently moved to the parent tab with no way back. Consider switching back to the student tab when homeschool is checked.",
+    "assessment_data.grade_to_difficulty maps grade<=6 to 3, so grade 6 starts at 3 while the doc comment/spec says 5-6:3, 7-9:4 - grade 6 behaviour matches code but confirm intent.",
+    "Onboarding.jsx renders result fields conditionally; if backend omits scaled_score/level_label the result card would be empty with no fallback message."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% (all 5 requested scenarios pass)"},
+  "seed_data_creation": "Created via UI signup: g12_1788130461@studybridge.org (grade 12, all 3 assessments complete), g1_1788130461@studybridge.org (grade 1 homeschool), g5_1788130652@studybridge.org (grade 5 homeschool, partial Overall) - all password pass1234",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "g12_1788130461@studybridge.org / pass1234 (grade 12, onboarding complete)",
+  "context_for_next_testing_agent": "Grade-calibrated start difficulty, new question counts (30/50/30), 50-1200 score + level label, career-no-difficulty and the onboarding gate all verified through the UI in this iteration. Automation pattern: loop reading data-testid=question-counter, click assess-option-0, then assess-next (or assess-submit on the last), waiting via page.wait_for_function on counter text change - ~50 questions takes ~40s. K-4 accounts skip onboarding (backend needs_assessment >= 5); reach their onboarding only by direct /onboarding navigation. Not retested: dashboard/Learn/AI helper, parent K-5 consent flow.",
+  "rca_of_the_issue": "No functional defects found. The only mismatch vs the test request (grade-1 student not landing on onboarding) is caused by server.py register-student setting needs_assessment = grade_int >= 5 and onboarding_complete = not needs_assessment, which marks K-4 students as already onboarded."
+}
