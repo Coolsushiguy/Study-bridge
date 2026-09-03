@@ -60,7 +60,7 @@ export default function AiHelper({ open, onClose }) {
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-sb-accent" />
           <div>
-            <p className="font-display text-sm text-sb-accent">Study Buddy</p>
+            <p className="font-display text-sm text-sb-accent">Sol</p>
             <p className="text-[10px] text-sb-accent/40 tracking-wide">Discuss, don't just answer</p>
           </div>
         </div>
