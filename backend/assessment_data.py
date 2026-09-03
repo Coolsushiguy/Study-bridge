@@ -51,6 +51,25 @@ ENGLISH_BANK = [
     {"q": "'Ubiquitous' most nearly means:", "options": ["rare", "everywhere", "hidden", "ancient"], "a": 1, "d": 5},
     {"q": "Which is an example of alliteration?", "options": ["Big blue ball", "Peter picked peppers", "The end", "A red car"], "a": 1, "d": 5},
     {"q": "'Benevolent' most nearly means:", "options": ["cruel", "kind", "wealthy", "silent"], "a": 1, "d": 5},
+    {"q": "Which sentence uses a semicolon correctly?", "options": ["I like tea; and coffee.", "I like tea; coffee is nice too.", "I like tea, coffee too.", "I like tea: coffee."], "a": 1, "d": 5},
+    {"q": "'Ephemeral' most nearly means:", "options": ["lasting", "brief", "loud", "solid"], "a": 1, "d": 5},
+    {"q": "Identify the tone: 'Oh great, another Monday.'", "options": ["earnest", "sarcastic", "joyful", "neutral"], "a": 1, "d": 5},
+    {"q": "Which word is used correctly? 'The company's / companies' profits rose.'", "options": ["company's", "companies", "companys", "companies's"], "a": 0, "d": 5},
+    {"q": "A word that means the opposite of 'verbose' is:", "options": ["wordy", "concise", "loud", "vague"], "a": 1, "d": 5},
+]
+
+# ---------------- English bank, D1-D2 retake buffer ----------------
+ENGLISH_BANK += [
+    {"q": "Which word is a pronoun?", "options": ["jump", "she", "purple", "table"], "a": 1, "d": 1},
+    {"q": "Which is a naming word (person, place, or thing)?", "options": ["run", "school", "loudly", "and"], "a": 1, "d": 1},
+    {"q": "Which word has a long 'a' sound?", "options": ["cat", "cake", "cap", "can"], "a": 1, "d": 1},
+    {"q": "Which word means the opposite of 'up'?", "options": ["down", "over", "left", "top"], "a": 0, "d": 1},
+    {"q": "Which sentence starts with a capital letter correctly?", "options": ["the dog ran.", "The dog ran.", "The Dog ran.", "the Dog ran."], "a": 1, "d": 1},
+    {"q": "Which word is spelled correctly?", "options": ["frend", "friend", "freind", "frind"], "a": 1, "d": 2},
+    {"q": "What is the plural of 'box'?", "options": ["boxs", "boxes", "boxies", "box"], "a": 1, "d": 2},
+    {"q": "Which sentence uses 'their' correctly?", "options": ["Their going home.", "They're going home.", "There going home.", "Thier going home."], "a": 1, "d": 2},
+    {"q": "Choose the correct helping verb: 'She ___ playing outside.'", "options": ["is", "be", "am", "were"], "a": 0, "d": 2},
+    {"q": "Which word is an adjective?", "options": ["run", "quickly", "tall", "jump"], "a": 2, "d": 2},
 ]
 
 # ---------------- Overall (math / science / general) bank ----------------
