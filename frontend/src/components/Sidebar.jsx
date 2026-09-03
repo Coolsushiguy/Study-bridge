@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 import {
   LayoutDashboard, BookOpen, Timer, Sparkles, Settings, LogOut,
-  ChevronLeft, ChevronRight, Lock, GraduationCap,
+  ChevronLeft, ChevronRight, Lock, GraduationCap, Bell,
 } from "lucide-react";
 
 const NAV = [
@@ -16,9 +18,14 @@ const LOCKED = [
   { label: "Contests", icon: Sparkles },
 ];
 
-export default function Sidebar({ collapsed, setCollapsed, onOpenAi, onOpenFocus }) {
+export default function Sidebar({ collapsed, setCollapsed, onOpenAi, onOpenFocus, onOpenNotifications }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [hasUnread, setHasUnread] = useState(false);
+
+  useEffect(() => {
+    api.get("/notifications/unread-count").then(({ data }) => setHasUnread(data.count > 0)).catch(() => {});
+  }, []);
 
   return (
     <aside
@@ -65,6 +72,19 @@ export default function Sidebar({ collapsed, setCollapsed, onOpenAi, onOpenFocus
         >
           <Sparkles className="w-5 h-5 shrink-0" />
           {!collapsed && <span>AI Helper</span>}
+        </button>
+        <button
+          data-testid="nav-notifications"
+          onClick={() => { setHasUnread(false); onOpenNotifications && onOpenNotifications(); }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sb-accent/60 hover:text-sb-accent hover:bg-sb-elevated transition-colors duration-200 relative"
+        >
+          <span className="relative shrink-0">
+            <Bell className="w-5 h-5" />
+            {hasUnread && (
+              <span data-testid="notification-dot" className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-sb-accent border-2 border-sb-surface" />
+            )}
+          </span>
+          {!collapsed && <span>Notifications</span>}
         </button>
 
         {!collapsed && (
