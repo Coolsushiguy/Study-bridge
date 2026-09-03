@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Landing from "@/pages/Landing";
+import Contact from "@/pages/Contact";
+import About from "@/pages/About";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import Consent from "@/pages/Consent";
@@ -27,8 +29,12 @@ function Protected({ children }) {
   const { user, ready } = useAuth();
   if (!ready) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.needs_assessment && !user.onboarding_complete)
-    return <Navigate to="/onboarding" replace />;
+  if (user.needs_assessment && !user.onboarding_complete) {
+    const deadline = user.assessment_deadline ? new Date(user.assessment_deadline) : null;
+    const pastDeadline = deadline && new Date() >= deadline;
+    // Before the skip is used, or once the 2-week grace period has expired, force onboarding.
+    if (!user.assessment_skipped || pastDeadline) return <Navigate to="/onboarding" replace />;
+  }
   return <Layout>{children}</Layout>;
 }
 
@@ -47,6 +53,8 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
             <Route path="/consent" element={<Consent />} />
