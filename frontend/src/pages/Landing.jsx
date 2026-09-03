@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { GraduationCap, ShieldCheck, Sparkles, BookOpen, Timer, ArrowRight, Users } from "lucide-react";
 import api from "@/lib/api";
+import Footer from "@/components/Footer";
 
 const HERO = "https://images.unsplash.com/photo-1690788210614-9052cffd8a14?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
@@ -53,7 +54,7 @@ export default function Landing() {
               <Users className="w-5 h-5" />
               <span className="font-display text-2xl">{stats ? stats.registered_users.toLocaleString() : "—"}</span>
             </div>
-            <p className="text-xs text-orange-50/60 mt-1">learners registered</p>
+            <p className="text-xs text-orange-50/60 mt-1">student users{stats?.nationwide ? " nationwide" : ""}</p>
             <div className="mt-3 h-1.5 w-48 bg-sb-border rounded-full overflow-hidden">
               <div className="h-full bg-sb-accent" style={{ width: `${stats?.progress_pct || 0}%` }} />
             </div>
@@ -64,8 +65,8 @@ export default function Landing() {
 
       <section className="max-w-7xl mx-auto px-6 pb-20 grid md:grid-cols-3 gap-6">
         {[
-          { icon: BookOpen, t: "AI-crafted lessons", d: "Chapters, lessons, exercises and glossaries generated and cached per grade — reviewed before publish." },
-          { icon: Sparkles, t: "Discuss, don't answer", d: "Our Study Buddy guides you with hints and questions so you truly learn — upload a photo of any problem." },
+          { icon: BookOpen, t: "Personalized lessons", d: "Chapters, lessons, exercises and glossaries tailored per grade — built to match how you actually learn." },
+          { icon: Sparkles, t: "Discuss, don't answer", d: "Sol guides you with hints and questions so you truly learn — upload a photo of any problem." },
           { icon: Timer, t: "Focus Mode", d: "A distraction-free in-app timer that keeps you on your study pages until the session ends." },
         ].map((f, i) => (
           <div key={i} className="sb-card rounded-2xl p-8 hover:-translate-y-1 transition-transform duration-300">
@@ -79,18 +80,26 @@ export default function Landing() {
       </section>
 
       <section className="max-w-4xl mx-auto px-6 pb-24">
-        <div className="sb-card rounded-3xl p-10 sm:p-14">
-          <p className="text-xs tracking-[0.2em] uppercase text-sb-accent/70 mb-4">Our founder story</p>
-          <h2 className="font-display text-2xl sm:text-3xl text-orange-50 mb-5">Built by students, for students.</h2>
-          <p className="font-body text-orange-50/70 leading-loose">
-            StudyBridge began in August 2026 with a simple belief: every learner — in a public school, a homeschool, or a small-town library — deserves a patient guide and a curriculum that meets them where they are. We're a non-profit, and we keep it safe: verifiable parental consent for our youngest learners, no piracy, no distractions, and AI that teaches rather than tells.
-          </p>
+        <div className="grid sm:grid-cols-3 gap-5">
+          {[
+            { tag: "Why StudyBridge", h: "Free, patient guidance for every learner." },
+            { tag: "What is StudyBridge", h: "An AI-guided K–12 platform, built safe." },
+            { tag: "How was StudyBridge Made", h: "Deliberately — one safeguard at a time." },
+          ].map((s) => (
+            <div key={s.tag} className="sb-card rounded-2xl p-6">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-sb-accent/60 mb-2">{s.tag}</p>
+              <p className="font-body text-sm text-orange-50/70 leading-relaxed">{s.h}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-6">
+          <Link to="/about" className="text-sm text-sb-accent hover:underline inline-flex items-center gap-1">
+            Read the full story <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </section>
 
-      <footer className="border-t border-sb-border py-8 text-center text-xs text-sb-accent/40">
-        StudyBridge · A non-profit learning platform · studybridge.contact@protonmail.com
-      </footer>
+      <Footer />
     </div>
   );
 }
