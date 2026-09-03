@@ -2,7 +2,25 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { BookOpen, Users, TrendingUp, ArrowRight, Sparkles, Compass } from "lucide-react";
+import { BookOpen, Users, TrendingUp, ArrowRight, Sparkles, Compass, Eye } from "lucide-react";
+
+// 12AM-9AM sleepy, 10AM-2PM wave, 3PM-6PM sunset, 7PM-12AM moon
+function timeGreeting() {
+  const h = new Date().getHours();
+  if (h >= 0 && h < 10) return { emoji: "😴", label: "Still early" };
+  if (h >= 10 && h < 15) return { emoji: "👋", label: "Good day" };
+  if (h >= 15 && h < 19) return { emoji: "🌇", label: "Good evening" };
+  return { emoji: "🌙", label: "Good night" };
+}
+
+function streakDisplay(current, justBroken) {
+  if (justBroken) return { emoji: "🥶😓", label: "Streak lost — start a new one today" };
+  if (!current) return { emoji: "✨", label: "Start your streak today" };
+  if (current >= 30) return { emoji: "💪🔥", label: `${current} day streak` };
+  if (current >= 14) return { emoji: "❤️‍🔥", label: `${current} day streak` };
+  if (current >= 3) return { emoji: "🔥", label: `${current} day streak` };
+  return { emoji: "✨", label: `${current} day streak` };
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -18,13 +36,19 @@ export default function Dashboard() {
 
   const consentPending = user?.account_type === "parent_led" && !user?.consent_verified;
   const nextDueLabel = career?.next_due ? new Date(career.next_due).toLocaleDateString() : "";
+  const greeting = timeGreeting();
+  const streak = streakDisplay(user?.current_streak, user?.streak_just_broken);
 
   return (
     <div className="space-y-8">
       <div className="sb-fade-up">
-        <p className="text-xs tracking-[0.2em] uppercase text-sb-accent/60">Welcome back</p>
-        <h1 className="font-display text-3xl sm:text-4xl text-white mt-2">Hi, @{user?.username} 👋</h1>
-        <p className="text-orange-50/60 mt-2">Grade {user?.grade}{user?.homeschool ? " · Homeschool" : ""} · Let's keep the streak going.</p>
+        <p className="text-xs tracking-[0.2em] uppercase text-sb-accent/60">{greeting.label}</p>
+        <h1 className="font-display text-3xl sm:text-4xl text-white mt-2">Hi, {user?.username}! {greeting.emoji}</h1>
+        <p className="text-orange-50/60 mt-2 flex items-center gap-2 flex-wrap">
+          <span>Grade {user?.grade}{user?.homeschool ? " · Homeschool" : ""}</span>
+          <span>·</span>
+          <span data-testid="dashboard-streak" className="inline-flex items-center gap-1">{streak.emoji} {streak.label}</span>
+        </p>
       </div>
 
       {consentPending && (
@@ -45,18 +69,11 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <StatCard icon={Users} label="Learners registered" value={stats ? stats.registered_users.toLocaleString() : "—"} sub={`${stats?.progress_pct || 0}% to 10k unlock`} />
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard icon={Users} label="Student users" value={stats ? `${stats.registered_users.toLocaleString()}${stats.nationwide ? " nationwide" : ""}` : "—"} sub={`${stats?.progress_pct || 0}% to 10k unlock`} />
+        <StatCard icon={Eye} label="Site visits" value={stats ? stats.total_visits.toLocaleString() : "—"} sub={stats ? `${stats.visits_until_contests.toLocaleString()} until Contests` : "—"} />
         <StatCard icon={TrendingUp} label="Onboarding" value={user?.onboarding_complete ? "Complete" : "In progress"} sub={user?.needs_assessment ? "Assessments pending" : "Ready to learn"} />
-        <StatCard icon={Sparkles} label="Study Buddy" value="Always on" sub="Discuss, don't answer" />
-      </div>
-
-      <div className="sb-card rounded-3xl p-8 sm:p-10">
-        <p className="text-xs tracking-[0.2em] uppercase text-sb-accent/70 mb-3">Founder story</p>
-        <h2 className="font-display text-xl sm:text-2xl text-orange-50 mb-4">Every learner, bridged forward.</h2>
-        <p className="font-body text-orange-50/70 leading-loose max-w-3xl">
-          Since August 2026, StudyBridge has been a non-profit built on one belief: a patient guide and a curriculum that meets you where you are should be free for every student — public school, homeschool, or library alike.
-        </p>
+        <StatCard icon={Sparkles} label="Sol" value="Always on" sub="Discuss, don't answer" />
       </div>
 
       <div>
