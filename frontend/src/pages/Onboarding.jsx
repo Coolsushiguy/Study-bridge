@@ -17,8 +17,28 @@ export default function Onboarding() {
   const [selected, setSelected] = useState(null);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const needsCareer = (user?.grade_int || 0) >= 6;
+
+  const deadline = user?.assessment_deadline ? new Date(user.assessment_deadline) : null;
+  const pastDeadline = deadline ? new Date() >= deadline : false;
+  const daysLeft = deadline ? Math.max(0, Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24))) : null;
+
+  const skip = async () => {
+    if (skipping || pastDeadline) return;
+    setSkipping(true);
+    try {
+      await api.post("/assessments/skip");
+      await refresh();
+      toast.success("Skipped for now — finish within your 2-week window.");
+      navigate("/dashboard");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail));
+    } finally {
+      setSkipping(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -135,7 +155,11 @@ export default function Onboarding() {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-2 mb-2"><GraduationCap className="w-5 h-5 text-sb-accent" /><span className="font-display text-sb-accent">StudyBridge</span></div>
         <h1 className="font-display text-3xl text-white mb-3">Let's get you set up</h1>
-        <p className="text-orange-50/60 mb-2">Complete these in one sitting (a 20-min break is fine). You have a 2-week window.</p>
+        {pastDeadline ? (
+          <p className="text-sm text-red-300 mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Your 2-week grace period has ended — these are now required to continue.</p>
+        ) : (
+          <p className="text-orange-50/60 mb-2">Complete these in one sitting (a 20-min break is fine), or skip for now — you have {daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left` : "a 2-week window"}.</p>
+        )}
         <p className="text-xs text-sb-accent/50 mb-8 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> The English & Overall tests adapt — questions get harder as you answer correctly.</p>
 
         <div className="space-y-4">
@@ -159,6 +183,13 @@ export default function Onboarding() {
           className="w-full mt-8 bg-sb-accent text-sb-base py-3.5 rounded-full font-medium disabled:opacity-40">
           {allDone ? "Enter StudyBridge" : "Finish all assessments to continue"}
         </button>
+
+        {!pastDeadline && !allDone && (
+          <button data-testid="onboarding-skip" onClick={skip} disabled={skipping}
+            className="w-full mt-3 border border-sb-border text-sb-accent/70 py-3 rounded-full font-medium hover:border-sb-accent hover:text-sb-accent transition-colors disabled:opacity-50">
+            {skipping ? "…" : `Skip for now (finish within ${daysLeft != null ? daysLeft : 14} days)`}
+          </button>
+        )}
       </div>
     </div>
   );
