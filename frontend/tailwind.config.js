@@ -10,12 +10,12 @@ module.exports = {
       },
       colors: {
         sb: {
-          base: '#1A0000',
-          surface: '#380101',
-          elevated: '#4A0A0A',
+          base: '#121212',
+          surface: '#1E1E1E',
+          elevated: '#2A2A2A',
           accent: '#FA8720',
           accentHover: '#FF9D42',
-          border: '#5C1A1A',
+          border: '#3A3A3A',
           yellow: '#FFC107',
         },
         background: 'hsl(var(--background))',
