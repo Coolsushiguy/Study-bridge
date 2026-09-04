@@ -186,6 +186,7 @@ class StudentRegister(BaseModel):
     district_email: Optional[str] = ""
     library_email: Optional[str] = ""
     homeschool: bool = False
+    terms_agreed: bool = False
 
 
 class ParentInviteRequest(BaseModel):
@@ -203,6 +204,7 @@ class ParentCreateAccount(BaseModel):
     state: Optional[str] = ""
     district: Optional[str] = ""
     homeschool: bool = False
+    terms_agreed: bool = False
 
 
 class TutorReportBody(BaseModel):
@@ -279,6 +281,8 @@ async def register_student(body: StudentRegister):
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
+    if not body.terms_agreed:
+        raise HTTPException(status_code=400, detail="You must agree to the Terms and Conditions to create an account.")
     if body.age is not None and body.age <= 13:
         raise HTTPException(
             status_code=400,
@@ -308,6 +312,8 @@ async def register_student(body: StudentRegister):
         "homeschool": body.homeschool,
         "account_type": "self",
         "consent_verified": True,
+        "terms_agreed": True,
+        "terms_agreed_at": created_at.isoformat(),
         "onboarding_complete": not needs_assessment,
         "needs_assessment": needs_assessment,
         "assessment_deadline": (created_at + timedelta(days=14)).isoformat() if needs_assessment else None,
@@ -389,6 +395,8 @@ async def parent_create_account(body: ParentCreateAccount):
     email = invite["parent_email"]
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    if not body.terms_agreed:
+        raise HTTPException(status_code=400, detail="You must agree to the Terms and Conditions to create an account.")
 
     grade_int = grade_to_int(body.child_grade)
     user_id = str(uuid.uuid4())
@@ -411,6 +419,8 @@ async def parent_create_account(body: ParentCreateAccount):
         "account_type": "parent_led",
         "parent_name": body.parent_name,
         "consent_verified": True,  # verified — the parent authenticated via the emailed link
+        "terms_agreed": True,
+        "terms_agreed_at": created_at.isoformat(),
         "onboarding_complete": not needs_assessment,
         "needs_assessment": needs_assessment,
         "assessment_deadline": (created_at + timedelta(days=14)).isoformat() if needs_assessment else None,
