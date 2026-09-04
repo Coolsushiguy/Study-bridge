@@ -7,6 +7,7 @@ import Contact from "@/pages/Contact";
 import About from "@/pages/About";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
+import ParentCreate from "@/pages/ParentCreate";
 import Consent from "@/pages/Consent";
 import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="/about" element={<About />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
+            <Route path="/parent-create" element={<PublicOnly><ParentCreate /></PublicOnly>} />
             <Route path="/consent" element={<Consent />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/onboarding" element={<Onboarding />} />
