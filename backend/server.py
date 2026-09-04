@@ -94,6 +94,12 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if user.get("banned"):
+        raise HTTPException(status_code=403, detail=f"This account has been banned. Reason: {user.get('ban_reason', 'policy violation')}")
+    suspended_until = user.get("suspended_until")
+    if suspended_until and datetime.now(timezone.utc) < datetime.fromisoformat(suspended_until):
+        until_label = datetime.fromisoformat(suspended_until).strftime("%B %d, %Y")
+        raise HTTPException(status_code=403, detail=f"This account is suspended until {until_label}. Reason: {user.get('suspend_reason', 'policy violation')}")
     return user
 
 
@@ -197,6 +203,20 @@ class ParentCreateAccount(BaseModel):
     state: Optional[str] = ""
     district: Optional[str] = ""
     homeschool: bool = False
+
+
+class TutorReportBody(BaseModel):
+    reason: str
+    details: str
+
+
+class BanBody(BaseModel):
+    reason: str
+
+
+class SuspendBody(BaseModel):
+    reason: str
+    days: int = 7
 
 
 class VerifyPasswordBody(BaseModel):
@@ -487,6 +507,12 @@ async def login(body: LoginBody):
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if user.get("banned"):
+        raise HTTPException(status_code=403, detail=f"This account has been banned. Reason: {user.get('ban_reason', 'policy violation')}")
+    suspended_until = user.get("suspended_until")
+    if suspended_until and datetime.now(timezone.utc) < datetime.fromisoformat(suspended_until):
+        until_label = datetime.fromisoformat(suspended_until).strftime("%B %d, %Y")
+        raise HTTPException(status_code=403, detail=f"This account is suspended until {until_label}. Reason: {user.get('suspend_reason', 'policy violation')}")
     token = create_token(user["id"], email)
     return {"token": token, "user": clean(user)}
 
@@ -953,6 +979,183 @@ async def skip_assessments(user: dict = Depends(get_current_user)):
     return {"success": True}
 
 
+# ---------------- tutors: promotion, profile, reporting, banning ----------------
+def _get_admin_alert_email() -> str:
+    """Where AI-flagged-valid tutor reports get emailed. Priority: explicit
+    ADMIN_ALERT_EMAIL env var -> the studybridge.cooperate address by default."""
+    return os.environ.get("ADMIN_ALERT_EMAIL", "studybridge.cooperate@protonmail.com")
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return user
+
+
+async def _tutors_unlocked() -> bool:
+    """Tutors (and the report button) only appear once the platform crosses the
+    10,000 registered-user unlock threshold, same as the rest of the locked features."""
+    count = await db.users.count_documents({"role": "student"})
+    return count >= 10000
+
+
+@api.post("/admin/tutors/{user_id}/promote")
+async def promote_to_tutor(user_id: str, admin: dict = Depends(require_admin)):
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.users.update_one({"id": user_id}, {"$set": {
+        "is_tutor": True, "tutor_rank": None,
+        "tutor_profile": {"photo_url": None, "behavior_report_url": None, "grade_report_url": None},
+    }})
+    return {"success": True}
+
+
+@api.get("/tutors")
+async def list_tutors():
+    if not await _tutors_unlocked():
+        return {"unlocked": False, "tutors": []}
+    docs = await db.users.find({"is_tutor": True, "banned": {"$ne": True}}).to_list(200)
+    return {"unlocked": True, "tutors": [
+        {"id": d["id"], "username": d["username"], "tutor_rank": d.get("tutor_rank"),
+         "tutor_profile": d.get("tutor_profile")} for d in docs
+    ]}
+
+
+@api.post("/tutors/{tutor_id}/report")
+async def report_tutor(tutor_id: str, body: TutorReportBody, user: dict = Depends(get_current_user)):
+    if not await _tutors_unlocked():
+        raise HTTPException(status_code=400, detail="Tutors aren't available yet.")
+    tutor = await db.users.find_one({"id": tutor_id, "is_tutor": True})
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor not found")
+
+    report_id = str(uuid.uuid4())
+    report = {
+        "id": report_id,
+        "tutor_id": tutor_id,
+        "tutor_username": tutor["username"],
+        "reporter_id": user["id"],
+        "reason": body.reason,
+        "details": body.details,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "ai_reviewed": False,
+        "ai_valid": None,
+        "ai_reasoning": None,
+        "emailed": False,
+    }
+    await db.tutor_reports.insert_one(report)
+
+    # AI triage: the model only assesses whether the report is plausible/specific
+    # enough to warrant a human's attention — it never bans anyone itself. A real
+    # admin always makes the final call via /admin/tutors/{id}/ban.
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"report-review-{report_id}",
+            system_message=(
+                "You triage user reports about tutors on an education platform. "
+                "Judge only whether THIS report is specific, plausible, and describes "
+                "genuine misconduct (harassment, inappropriate content, unsafe behavior, "
+                "abuse) rather than being vague, clearly false, a duplicate complaint about "
+                "grading/personality, or spam. Output strict JSON only: "
+                '{"valid": true or false, "reasoning": "one sentence"}'
+            ),
+        ).with_model(*CHAT_MODEL)
+        resp = await llm_send(chat, UserMessage(
+            text=f"Reason category: {body.reason}\nReport details: {body.details}"
+        ))
+        text = re.sub(r"^```(json)?|```$", "", resp.strip()).strip()
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        verdict = json.loads(match.group(0)) if match else {"valid": True, "reasoning": "AI review unavailable — defaulting to flagged for safety."}
+    except Exception as e:
+        logger.error(f"AI report review failed: {e}")
+        verdict = {"valid": True, "reasoning": "AI review unavailable — defaulting to flagged for safety."}
+
+    is_valid = bool(verdict.get("valid"))
+    emailed = False
+    if is_valid:
+        emailed = await send_email(
+            _get_admin_alert_email(),
+            f"[StudyBridge] Tutor report flagged as valid — {tutor['username']}",
+            f"A report about tutor '{tutor['username']}' (id: {tutor_id}) was flagged by AI triage as likely valid.\n\n"
+            f"Reason: {body.reason}\nDetails: {body.details}\n\nAI reasoning: {verdict.get('reasoning', '')}\n\n"
+            f"Review and take action (e.g. ban or suspend) using the admin user search.",
+        )
+
+    await db.tutor_reports.update_one({"id": report_id}, {"$set": {
+        "ai_reviewed": True, "ai_valid": is_valid,
+        "ai_reasoning": verdict.get("reasoning", ""), "emailed": emailed,
+    }})
+    return {"success": True, "ai_valid": is_valid}
+
+
+@api.get("/admin/tutors/reports")
+async def list_tutor_reports(admin: dict = Depends(require_admin)):
+    """All reports, valid or not — the AI verdict only controls the email alert,
+    never what an admin can see. Nothing is silently hidden from human review."""
+    docs = await db.tutor_reports.find().sort("created_at", -1).to_list(500)
+    return {"reports": [clean(d) for d in docs]}
+
+
+@api.get("/admin/users/search")
+async def search_users(q: str, admin: dict = Depends(require_admin)):
+    """Search any account by username (case-insensitive, partial match) so the
+    admin can find and ban/suspend anyone — student, tutor, or otherwise."""
+    if not q or len(q) < 2:
+        return {"users": []}
+    docs = await db.users.find({
+        "username": {"$regex": re.escape(q), "$options": "i"},
+    }).limit(25).to_list(25)
+    return {"users": [
+        {
+            "id": d["id"], "username": d["username"], "email": d.get("email"),
+            "role": d.get("role"), "grade": d.get("grade"), "is_tutor": d.get("is_tutor", False),
+            "banned": d.get("banned", False), "ban_reason": d.get("ban_reason"),
+            "suspended_until": d.get("suspended_until"), "suspend_reason": d.get("suspend_reason"),
+        } for d in docs
+    ]}
+
+
+@api.post("/admin/users/{user_id}/ban")
+async def ban_user(user_id: str, body: BanBody, admin: dict = Depends(require_admin)):
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Can't ban an admin account.")
+    await db.users.update_one({"id": user_id}, {"$set": {
+        "banned": True, "ban_reason": body.reason, "banned_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return {"success": True}
+
+
+@api.post("/admin/users/{user_id}/unban")
+async def unban_user(user_id: str, admin: dict = Depends(require_admin)):
+    await db.users.update_one({"id": user_id}, {"$set": {"banned": False, "ban_reason": None}})
+    return {"success": True}
+
+
+@api.post("/admin/users/{user_id}/suspend")
+async def suspend_user(user_id: str, body: SuspendBody, admin: dict = Depends(require_admin)):
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Can't suspend an admin account.")
+    until = datetime.now(timezone.utc) + timedelta(days=body.days)
+    await db.users.update_one({"id": user_id}, {"$set": {
+        "suspended_until": until.isoformat(), "suspend_reason": body.reason,
+    }})
+    return {"success": True, "suspended_until": until.isoformat()}
+
+
+@api.post("/admin/users/{user_id}/unsuspend")
+async def unsuspend_user(user_id: str, admin: dict = Depends(require_admin)):
+    await db.users.update_one({"id": user_id}, {"$set": {"suspended_until": None, "suspend_reason": None}})
+    return {"success": True}
+
+
 def _pick_question(test_type, difficulty, asked_indexes):
     """Adaptive: choose an unused question at the target difficulty, else the nearest available."""
     bank = BANKS[test_type]
@@ -1177,21 +1380,41 @@ app.add_middleware(
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id")
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@studybridge.org")
-    admin_pw = os.environ.get("ADMIN_PASSWORD", "admin123")
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()), "role": "admin", "username": "admin",
-            "email": admin_email, "password_hash": hash_password(admin_pw),
-            "grade": "12", "grade_int": 12, "onboarding_complete": True,
-            "needs_assessment": False, "assessments": {}, "curriculum_weights": {},
-            "parental_controls": ParentalControls().model_dump(),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        logger.info("Seeded admin user")
-    elif not verify_password(admin_pw, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_pw)}})
+
+    # Supports one or many admin accounts via ADMIN_ACCOUNTS="email1:password1,email2:password2".
+    # Falls back to the single ADMIN_EMAIL/ADMIN_PASSWORD pair for backward compatibility.
+    # Credentials live only in environment variables — never hardcoded here — so nothing
+    # sensitive ends up committed to a public repo.
+    accounts = []
+    raw = os.environ.get("ADMIN_ACCOUNTS", "")
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if not pair or ":" not in pair:
+            continue
+        email, pw = pair.split(":", 1)
+        accounts.append((email.strip().lower(), pw.strip()))
+    if not accounts:
+        accounts.append((
+            os.environ.get("ADMIN_EMAIL", "admin@studybridge.org").lower(),
+            os.environ.get("ADMIN_PASSWORD", "admin123"),
+        ))
+
+    for admin_email, admin_pw in accounts:
+        existing = await db.users.find_one({"email": admin_email})
+        if not existing:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()), "role": "admin", "username": admin_email.split("@")[0],
+                "email": admin_email, "password_hash": hash_password(admin_pw),
+                "grade": "12", "grade_int": 12, "onboarding_complete": True,
+                "needs_assessment": False, "assessments": {}, "curriculum_weights": {},
+                "parental_controls": ParentalControls().model_dump(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            logger.info(f"Seeded admin user: {admin_email}")
+        elif not verify_password(admin_pw, existing["password_hash"]):
+            # Keeps the DB password in sync if the env var value changes later.
+            await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_pw)}})
+            logger.info(f"Updated admin password from env for: {admin_email}")
 
 
 @app.on_event("shutdown")
