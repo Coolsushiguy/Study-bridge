@@ -6,8 +6,7 @@ const SECTIONS = [
   {
     tag: "Why StudyBridge",
     title: "Every student deserves an open opportunity",
-    body: "Students don’t always fall behind because they can’t learn. Sometimes, they just don’t have the time, money, or support they need. Tutoring can be expensive, classrooms can move too quickly or too slowly, and a lot of useful learning material is locked behind paywalls. We created StudyBridge to make extra help easier to access. Whether you go to public school, homeschool, or study on your own at a local library, you should be able to find good lessons, practice, and support without having to pay for it.
-",
+    body: "Students don’t always fall behind because they can’t learn. Sometimes, they just don’t have the time, money, or support they need. Tutoring can be expensive, classrooms can move too quickly or too slowly, and a lot of useful learning material is locked behind paywalls. We created StudyBridge to make extra help easier to access. Whether you go to public school, homeschool, or study on your own at a local library, you should be able to find good lessons, practice, and support without having to pay for it.",
   },
   {
     tag: "What is StudyBridge",
@@ -17,8 +16,7 @@ const SECTIONS = [
   {
     tag: "How was StudyBridge Made",
     title: "Built deliberately, made with dilligence",
-    body: "StudyBridge started in August 2026 as a non-profit project by 2 students of the Francis Howell School District, Vijval Satheesh-Kumar & Sushanth Ventherla focused on helping students catch up and go far beyond. We are a COPPA-approved website and app for younger students. 
-",
+    body: "StudyBridge started in August 2026 as a non-profit project by 2 students of the Francis Howell School District, Vijval Satheesh-Kumar & Sushanth Ventherla focused on helping students catch up and go far beyond. We are a COPPA-approved website and app for younger students.",
   },
 ];
 
