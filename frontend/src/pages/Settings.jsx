@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldCheck, MessageSquare } from "lucide-react";
+import { ShieldCheck, MessageSquare, Lock } from "lucide-react";
 
 const CONTROLS = [
   { key: "prohibit_chat", label: "Prohibit tutor chat", desc: "Blocks tutor messaging (unlocks at 10k users)." },
@@ -11,6 +11,49 @@ const CONTROLS = [
   { key: "disable_contests", label: "Disable contests", desc: "Opts out of contests & programs entirely." },
 ];
 
+function PasswordGate({ onUnlock }) {
+  const [password, setPassword] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [wrong, setWrong] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setChecking(true);
+    setWrong(false);
+    try {
+      const { data } = await api.post("/auth/verify-password", { password });
+      if (data.valid) onUnlock();
+      else setWrong(true);
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail));
+    } finally { setChecking(false); }
+  };
+
+  return (
+    <div className="max-w-sm mx-auto text-center py-16 sb-fade-up">
+      <div className="w-14 h-14 rounded-full bg-sb-accent/15 flex items-center justify-center mx-auto mb-4">
+        <Lock className="w-7 h-7 text-sb-accent" />
+      </div>
+      <h1 className="font-display text-xl text-white mb-1">Parental Controls</h1>
+      <p className="text-sm text-orange-50/60 mb-6">Enter the account password to continue.</p>
+      <form onSubmit={submit} className="space-y-3">
+        <input
+          data-testid="controls-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoFocus
+          className="w-full bg-sb-base border border-sb-border rounded-lg px-3.5 py-2.5 text-orange-50 text-center focus:outline-none focus:ring-2 focus:ring-sb-accent"
+        />
+        {wrong && <p className="text-red-300 text-xs">That password isn't right.</p>}
+        <button data-testid="controls-unlock" disabled={checking || !password} className="w-full bg-sb-accent text-sb-base py-3 rounded-full font-medium disabled:opacity-50">
+          {checking ? "Checking…" : "Unlock"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { user, refresh } = useAuth();
   const [controls, setControls] = useState(user?.parental_controls || {});
@@ -18,6 +61,7 @@ export default function Settings() {
   const [eligible, setEligible] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => { setControls(user?.parental_controls || {}); }, [user]);
   useEffect(() => { api.get("/feedback/eligible").then(({ data }) => setEligible(data.eligible)).catch(() => {}); }, []);
@@ -43,6 +87,8 @@ export default function Settings() {
       setEligible(false);
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
   };
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="space-y-8 max-w-2xl">
