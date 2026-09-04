@@ -128,12 +128,51 @@ def grade_to_int(grade: str) -> int:
         return 0
 
 
+# ---------------- real email sending ----------------
+# Provider-agnostic: works with any SMTP service (SendGrid SMTP relay, Mailgun,
+# Postmark, Gmail with an app password, your own mail server, etc). Configure
+# via env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL.
+# If unconfigured, falls back to logging the email (keeps local dev working).
+import smtplib
+from email.mime.text import MIMEText
+
+SMTP_HOST = os.environ.get("SMTP_HOST")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "studybridge.cooperate@protonmail.com")
+
+
+async def send_email(to_email: str, subject: str, body: str):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
+        logger.warning(f"[EMAIL NOT CONFIGURED] Would send to {to_email}: {subject}\n{body}")
+        return False
+
+    def _send():
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = to_email
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(FROM_EMAIL, [to_email], msg.as_string())
+
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, _send)
+        return True
+    except Exception as e:
+        logger.error(f"Email send failed to {to_email}: {e}")
+        return False
+
+
 # ---------------- models ----------------
 class StudentRegister(BaseModel):
     username: str
     email: EmailStr
     password: str
     grade: str
+    age: Optional[int] = None
     school: Optional[str] = ""
     state: Optional[str] = ""
     district: Optional[str] = ""
@@ -141,6 +180,27 @@ class StudentRegister(BaseModel):
     district_email: Optional[str] = ""
     library_email: Optional[str] = ""
     homeschool: bool = False
+
+
+class ParentInviteRequest(BaseModel):
+    child_age: int
+    parent_email: EmailStr
+
+
+class ParentCreateAccount(BaseModel):
+    token: str
+    parent_name: str
+    parent_password: str
+    child_username: str
+    child_grade: str
+    school: Optional[str] = ""
+    state: Optional[str] = ""
+    district: Optional[str] = ""
+    homeschool: bool = False
+
+
+class VerifyPasswordBody(BaseModel):
+    password: str
 
 
 class ParentRegister(BaseModel):
@@ -199,12 +259,12 @@ async def register_student(body: StudentRegister):
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
-    grade_int = grade_to_int(body.grade)
-    if grade_int < 6 and not body.homeschool:
+    if body.age is not None and body.age <= 13:
         raise HTTPException(
             status_code=400,
-            detail="Students in grades K-5 must be registered by a parent.",
+            detail="Students 13 or under must have a parent create their account.",
         )
+    grade_int = grade_to_int(body.grade)
     user_id = str(uuid.uuid4())
     needs_assessment = grade_int >= 5
     created_at = datetime.now(timezone.utc)
@@ -216,6 +276,7 @@ async def register_student(body: StudentRegister):
         "password_hash": hash_password(body.password),
         "grade": body.grade,
         "grade_int": grade_int,
+        "age": body.age,
         "school": body.school,
         "state": body.state,
         "district": body.district,
@@ -243,6 +304,116 @@ async def register_student(body: StudentRegister):
     await db.users.insert_one(user)
     token = create_token(user_id, email)
     return {"token": token, "user": clean(user)}
+
+
+@api.post("/auth/parent-invite")
+async def parent_invite(body: ParentInviteRequest):
+    """Step 1 of the under-13 flow: the child enters their age + a parent's email.
+    We email the PARENT a link; the parent creates the account themselves on the
+    other end. Nothing about the child is stored yet — just a pending invite."""
+    if body.child_age > 13:
+        raise HTTPException(status_code=400, detail="This flow is for students 13 and under.")
+    if await db.users.find_one({"email": body.parent_email.lower()}):
+        raise HTTPException(status_code=400, detail="An account with this parent email already exists.")
+
+    invite_token = secrets.token_urlsafe(24)
+    await db.parent_invites.insert_one({
+        "token": invite_token,
+        "parent_email": body.parent_email.lower(),
+        "child_age": body.child_age,
+        "used": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=2)).isoformat(),
+    })
+    create_link = f"{FRONTEND_URL}/parent-create?token={invite_token}"
+    sent = await send_email(
+        body.parent_email,
+        "Create your child's StudyBridge account",
+        f"Your child (age {body.child_age}) wants to join StudyBridge, a free K-12 learning platform.\n\n"
+        f"Because they're 13 or under, StudyBridge requires a parent or guardian to create and manage the account "
+        f"(this is required by COPPA, a US child-privacy law).\n\n"
+        f"To create the account, open this link within 2 days:\n{create_link}\n\n"
+        f"If you didn't expect this, you can safely ignore this email.",
+    )
+    return {
+        "success": True,
+        "emailed": sent,
+        # Surfaced only so the flow is testable before real SMTP is configured — remove once SMTP is live.
+        "dev_create_link": None if sent else create_link,
+    }
+
+
+@api.get("/auth/parent-invite/{token}")
+async def get_parent_invite(token: str):
+    invite = await db.parent_invites.find_one({"token": token})
+    if not invite:
+        raise HTTPException(status_code=404, detail="This link is invalid or has already been used.")
+    if invite["used"]:
+        raise HTTPException(status_code=400, detail="This link has already been used.")
+    if datetime.now(timezone.utc) > datetime.fromisoformat(invite["expires_at"]):
+        raise HTTPException(status_code=400, detail="This link has expired. Please start over.")
+    return {"parent_email": invite["parent_email"], "child_age": invite["child_age"]}
+
+
+@api.post("/auth/parent-create")
+async def parent_create_account(body: ParentCreateAccount):
+    """Step 2 of the under-13 flow: the parent, having clicked the emailed link,
+    creates the actual account themselves. Because the parent is the one who
+    authenticated via the emailed link, consent is verified immediately."""
+    invite = await db.parent_invites.find_one({"token": body.token})
+    if not invite or invite["used"]:
+        raise HTTPException(status_code=404, detail="This link is invalid or has already been used.")
+    if datetime.now(timezone.utc) > datetime.fromisoformat(invite["expires_at"]):
+        raise HTTPException(status_code=400, detail="This link has expired. Please start over.")
+
+    email = invite["parent_email"]
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+
+    grade_int = grade_to_int(body.child_grade)
+    user_id = str(uuid.uuid4())
+    needs_assessment = grade_int >= 5
+    created_at = datetime.now(timezone.utc)
+    user = {
+        "id": user_id,
+        "role": "student",
+        "username": body.child_username,
+        "email": email,  # parent's email; no separate child email stored
+        "password_hash": hash_password(body.parent_password),
+        "grade": body.child_grade,
+        "grade_int": grade_int,
+        "age": invite["child_age"],
+        "school": body.school,
+        "state": body.state,
+        "district": body.district,
+        "cert_emails": {},
+        "homeschool": body.homeschool,
+        "account_type": "parent_led",
+        "parent_name": body.parent_name,
+        "consent_verified": True,  # verified — the parent authenticated via the emailed link
+        "onboarding_complete": not needs_assessment,
+        "needs_assessment": needs_assessment,
+        "assessment_deadline": (created_at + timedelta(days=14)).isoformat() if needs_assessment else None,
+        "assessment_skipped": False,
+        "assessments": {},
+        "curriculum_weights": {},
+        "parental_controls": ParentalControls(prohibit_chat=True, disable_contests=True).model_dump(),
+        "created_at": created_at.isoformat(),
+        "current_streak": 0,
+        "longest_streak": 0,
+        "last_active_date": None,
+        "streak_just_broken": False,
+    }
+    await db.users.insert_one(user)
+    await db.parent_invites.update_one({"token": body.token}, {"$set": {"used": True}})
+    token = create_token(user_id, email)
+    return {"token": token, "user": clean(user)}
+
+
+@api.post("/auth/verify-password")
+async def verify_current_password(body: VerifyPasswordBody, user: dict = Depends(get_current_user)):
+    """Used to gate access to Parental Controls: re-enter the account password to unlock."""
+    return {"valid": verify_password(body.password, user["password_hash"])}
 
 
 @api.post("/auth/register-parent")
