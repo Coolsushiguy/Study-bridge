@@ -4,6 +4,7 @@ import { GraduationCap, ShieldCheck, Lock, Mail } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
+import TermsModal from "@/components/TermsModal";
 import { toast } from "sonner";
 
 const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -20,6 +21,7 @@ export default function Signup() {
   const [form, setForm] = useState({ age: "", grade: "" });
   const [parentEmail, setParentEmail] = useState("");
   const [devLink, setDevLink] = useState(null);
+  const [showTerms, setShowTerms] = useState(false);
   const { loginWith } = useAuth();
   const navigate = useNavigate();
 
@@ -48,8 +50,12 @@ export default function Signup() {
     } finally { setLoading(false); }
   };
 
-  const submit = async (e) => {
+  const openTerms = (e) => {
     e.preventDefault();
+    setShowTerms(true);
+  };
+
+  const doSubmit = async () => {
     setLoading(true);
     try {
       const { data } = await api.post("/auth/register-student", {
@@ -57,14 +63,14 @@ export default function Signup() {
         grade: form.grade, age: parseInt(form.age, 10),
         school: form.school, state: form.state, district: form.district,
         principal_email: form.principal_email, district_email: form.district_email,
-        library_email: form.library_email, homeschool,
+        library_email: form.library_email, homeschool, terms_agreed: true,
       });
       loginWith(data.token, data.user);
       toast.success("Welcome to StudyBridge!");
       navigate(data.user.needs_assessment ? "/onboarding" : "/dashboard");
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail));
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setShowTerms(false); }
   };
 
   return (
@@ -127,7 +133,7 @@ export default function Signup() {
         )}
 
         {step === "student" && (
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={openTerms} className="space-y-4">
             <div className="text-center mb-2">
               <h1 className="font-display text-xl text-white mb-1">Create your account</h1>
             </div>
@@ -181,6 +187,13 @@ export default function Signup() {
           Already have an account? <Link to="/login" className="text-sb-accent">Log in</Link>
         </p>
       </div>
+
+      <TermsModal
+        open={showTerms}
+        busy={loading}
+        onAgree={doSubmit}
+        onDecline={() => setShowTerms(false)}
+      />
     </div>
   );
 }
