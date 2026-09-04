@@ -4,6 +4,7 @@ import { GraduationCap, ShieldCheck, Lock } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
+import TermsModal from "@/components/TermsModal";
 import { toast } from "sonner";
 
 const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -17,6 +18,7 @@ export default function ParentCreate() {
   const [homeschool, setHomeschool] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ grade: "" });
+  const [showTerms, setShowTerms] = useState(false);
   const { loginWith } = useAuth();
   const navigate = useNavigate();
 
@@ -31,8 +33,12 @@ export default function ParentCreate() {
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = async (e) => {
+  const openTerms = (e) => {
     e.preventDefault();
+    setShowTerms(true);
+  };
+
+  const doSubmit = async () => {
     setLoading(true);
     try {
       const { data } = await api.post("/auth/parent-create", {
@@ -42,14 +48,14 @@ export default function ParentCreate() {
         child_username: form.child_username,
         child_grade: form.grade,
         school: form.school, state: form.state, district: form.district,
-        homeschool,
+        homeschool, terms_agreed: true,
       });
       loginWith(data.token, data.user);
       toast.success("Account created!");
       navigate(data.user.needs_assessment ? "/onboarding" : "/dashboard");
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail));
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setShowTerms(false); }
   };
 
   return (
@@ -76,7 +82,7 @@ export default function ParentCreate() {
               <span>You're creating a StudyBridge account for your child (age {invite.child_age}). The password you set below is also what you'll use to open Parental Controls later.</span>
             </div>
 
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={openTerms} className="space-y-4">
               <Field label="Your full name" value={form.parent_name || ""} onChange={set("parent_name")} testId="parentcreate-name" required />
               <div className="block">
                 <span className="text-xs tracking-wide uppercase text-sb-accent/60">Your email</span>
@@ -120,6 +126,13 @@ export default function ParentCreate() {
           </>
         )}
       </div>
+
+      <TermsModal
+        open={showTerms}
+        busy={loading}
+        onAgree={doSubmit}
+        onDecline={() => setShowTerms(false)}
+      />
     </div>
   );
 }
