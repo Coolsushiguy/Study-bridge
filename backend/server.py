@@ -40,7 +40,7 @@ db = client[os.environ["DB_NAME"]]
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
-FRONTEND_URL = os.environ.get("REACT_APP_BACKEND_URL", "")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 CHAT_MODEL = ("gemini", "gemini-3-flash-preview")
 LESSON_MODEL = ("gemini", "gemini-3.1-pro-preview")
