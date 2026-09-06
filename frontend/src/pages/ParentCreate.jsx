@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { ShieldCheck, Lock } from "lucide-react";
-import logo from "@/assets/logo.jpg";
+import logo from "@/assets/logo.png";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
 import TermsModal from "@/components/TermsModal";
 import { toast } from "sonner";
 
-const GRADES = ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"];
+const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export default function ParentCreate() {
   const [params] = useSearchParams();
@@ -63,7 +63,7 @@ export default function ParentCreate() {
     <div className="min-h-screen flex items-center justify-center bg-sb-base sb-grain px-6 py-12">
       <div className="w-full max-w-lg sb-card rounded-3xl p-8 sm:p-10 sb-fade-up">
         <Link to="/" className="flex items-center gap-2 justify-center mb-6">
-          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
+          <div className="w-9 h-9 flex items-center justify-center"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
           <span className="font-display text-sb-accent">StudyBridge</span>
         </Link>
 
