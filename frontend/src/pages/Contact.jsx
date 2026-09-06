@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, Mail, GraduationCap } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 
 export default function Contact() {
   return (
@@ -10,8 +11,8 @@ export default function Contact() {
         </Link>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-sb-accent flex items-center justify-center">
-            <GraduationCap className="w-6 h-6 text-sb-base" />
+          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1">
+            <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
           </div>
           <h1 className="font-display text-3xl text-white">Contact Us</h1>
         </div>
