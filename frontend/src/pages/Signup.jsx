@@ -162,9 +162,14 @@ export default function Signup() {
             <Field label="School" value={form.school || ""} onChange={set("school")} testId="signup-school" />
             <Field label="District" value={form.district || ""} onChange={set("district")} testId="signup-district" />
 
-            <details className="text-sm">
-              <summary className="cursor-pointer text-sb-accent/60 hover:text-sb-accent">Optional certificate emails</summary>
-              <div className="space-y-3 mt-3">
+            <details className="bg-sb-base border border-sb-border rounded-lg p-4">
+              <summary className="cursor-pointer text-base font-medium text-sb-accent hover:text-sb-accentHover">
+                Optional Certificate Emails
+              </summary>
+              <p className="text-xs text-sb-accent/50 mt-1">
+                You can also add or change these later in Settings.
+              </p>
+              <div className="space-y-3 mt-4">
                 <Field label="Principal email" type="email" value={form.principal_email || ""} onChange={set("principal_email")} testId="signup-principal" />
                 <Field label="District email" type="email" value={form.district_email || ""} onChange={set("district_email")} testId="signup-district-email" />
                 <Field label="Library email" type="email" value={form.library_email || ""} onChange={set("library_email")} testId="signup-library" />
