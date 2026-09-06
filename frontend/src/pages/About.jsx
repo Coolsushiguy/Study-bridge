@@ -1,104 +1,205 @@
-import { Link } from "react-router-dom";
-import { ArrowLeft, GraduationCap } from "lucide-react";
-import Footer from "@/components/Footer";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ShieldCheck, Lock, Mail } from "lucide-react";
+import logo from "@/assets/logo.jpg";
+import api, { formatApiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { Field } from "@/pages/Login";
+import TermsModal from "@/components/TermsModal";
+import { toast } from "sonner";
 
-const SECTIONS = [
-  {
-    tag: "Why StudyBridge",
-    title: "Every student deserves an open opportunity",
-    body: "Students don’t always fall behind because they can’t learn. Sometimes, they just don’t have the time, money, or support they need. Tutoring can be expensive, classrooms can move too quickly or too slowly, and a lot of useful learning material is locked behind paywalls. We created StudyBridge to make extra help easier to access. Whether you go to public school, homeschool, or study on your own at a local library, you should be able to find good lessons, practice, and support without having to pay for it.",
-  },
-  {
-    tag: "What is StudyBridge",
-    title: "Educational Resources for Everyone",
-    body: "StudyBridge is a non-profit K-12 learning platform built around how students actually learn. Instead of a one-size-fits-all curriculum, kids get lessons tailored to their skill level and interests. Content is broken into short, manageable chapters, paired with a study assistant designed to guide students through problems rather than just giving them the answers. With built-in tools like Focus Mode to limit distractions and strict privacy controls requiring parental consent for younger kids, it gives students a safe, structure-driven space to build real study habits.",
-  },
-  {
-    tag: "How was StudyBridge Made",
-    title: "Built deliberately, made with dilligence",
-    body: "StudyBridge started in August 2026 as a non-profit project by 2 students of the Francis Howell School District, Vijval Satheesh-Kumar & Sushanth Ventherla focused on helping students catch up and go far beyond. We are a COPPA-approved website and app for younger students.",
-  },
-];
+const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
-export default function About() {
+export default function Signup() {
+  // Step "age": a single neutral question, no visible hint about what happens next.
+  // Step "student": normal self-signup (age > 13).
+  // Step "parent-email": under-13 path — just collect a parent email and send them the real invite.
+  // Step "sent": confirmation the invite email went out.
+  const [step, setStep] = useState("age");
+  const [states, setStates] = useState([]);
+  const [homeschool, setHomeschool] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ age: "", grade: "" });
+  const [parentEmail, setParentEmail] = useState("");
+  const [devLink, setDevLink] = useState(null);
+  const [showTerms, setShowTerms] = useState(false);
+  const { loginWith } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => { api.get("/meta/states").then(({ data }) => setStates(data.states)).catch(() => {}); }, []);
+
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const continueFromAge = (e) => {
+    e.preventDefault();
+    const age = parseInt(form.age, 10);
+    if (!age || age < 3 || age > 100) return;
+    setStep(age <= 13 ? "parent-email" : "student");
+  };
+
+  const sendParentInvite = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data } = await api.post("/auth/parent-invite", {
+        child_age: parseInt(form.age, 10), parent_email: parentEmail,
+      });
+      setDevLink(data.dev_create_link || null);
+      setStep("sent");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail));
+    } finally { setLoading(false); }
+  };
+
+  const openTerms = (e) => {
+    e.preventDefault();
+    setShowTerms(true);
+  };
+
+  const doSubmit = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.post("/auth/register-student", {
+        username: form.username, email: form.email, password: form.password,
+        grade: form.grade, age: parseInt(form.age, 10),
+        school: form.school, state: form.state, district: form.district,
+        principal_email: form.principal_email, district_email: form.district_email,
+        library_email: form.library_email, homeschool, terms_agreed: true,
+      });
+      loginWith(data.token, data.user);
+      toast.success("Welcome to StudyBridge!");
+      navigate(data.user.needs_assessment ? "/onboarding" : "/dashboard");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail));
+    } finally { setLoading(false); setShowTerms(false); }
+  };
+
   return (
-    <div className="min-h-screen bg-sb-base sb-grain relative overflow-hidden">
-      <ElectricLights />
-
-      <div className="max-w-4xl mx-auto px-6 py-16 relative z-10">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-sb-accent/70 hover:text-sb-accent mb-10">
-          <ArrowLeft className="w-4 h-4" /> Back to StudyBridge
+    <div className="min-h-screen flex items-center justify-center bg-sb-base sb-grain px-6 py-12">
+      <div className="w-full max-w-lg sb-card rounded-3xl p-8 sm:p-10 sb-fade-up">
+        <Link to="/" className="flex items-center gap-2 justify-center mb-6">
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
+          <span className="font-display text-sb-accent">StudyBridge</span>
         </Link>
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-sb-accent flex items-center justify-center">
-            <GraduationCap className="w-6 h-6 text-sb-base" />
-          </div>
-          <h1 className="font-display text-3xl text-white">About StudyBridge</h1>
-        </div>
-
-        <div className="space-y-8 mt-10">
-          {SECTIONS.map((s) => (
-            <div key={s.tag} className="sb-card rounded-3xl p-8 sm:p-10">
-              <p className="text-xs tracking-[0.2em] uppercase text-sb-accent/70 mb-3">{s.tag}</p>
-              <h2 className="font-display text-xl sm:text-2xl text-orange-50 mb-4">{s.title}</h2>
-              <p className="font-body text-orange-50/70 leading-loose">{s.body}</p>
+        {step === "age" && (
+          <form onSubmit={continueFromAge} className="space-y-5">
+            <div className="text-center mb-2">
+              <h1 className="font-display text-xl text-white mb-1">Let's get started</h1>
+              <p className="text-sm text-orange-50/60">First, how old are you?</p>
             </div>
-          ))}
-        </div>
+            <label className="block">
+              <span className="text-xs tracking-wide uppercase text-sb-accent/60">Age</span>
+              <input data-testid="signup-age" type="number" min="3" max="100" required value={form.age}
+                onChange={(e) => set("age")(e.target.value)}
+                className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent" />
+            </label>
+            <button data-testid="signup-age-continue" disabled={!form.age} className="w-full bg-sb-accent text-sb-base py-3 rounded-full font-medium hover:bg-sb-accentHover transition-colors disabled:opacity-40">
+              Continue
+            </button>
+          </form>
+        )}
+
+        {step === "parent-email" && (
+          <form onSubmit={sendParentInvite} className="space-y-5">
+            <div className="flex items-start gap-2 text-xs text-sb-accent/70 bg-sb-base border border-sb-border rounded-lg p-3">
+              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>Since you're 13 or under, StudyBridge (by law, COPPA) needs a parent or guardian to create your account. Enter their email and we'll send them everything they need.</span>
+            </div>
+            <Field label="Parent or guardian's email" type="email" value={parentEmail} onChange={setParentEmail} testId="signup-parent-email" required />
+            <button data-testid="send-parent-invite" disabled={loading || !parentEmail} className="w-full bg-sb-accent text-sb-base py-3 rounded-full font-medium hover:bg-sb-accentHover transition-colors disabled:opacity-50">
+              {loading ? "Sending…" : "Send to my parent"}
+            </button>
+            <button type="button" onClick={() => setStep("age")} className="w-full text-center text-xs text-sb-accent/50 hover:text-sb-accent">← Back</button>
+          </form>
+        )}
+
+        {step === "sent" && (
+          <div className="text-center space-y-4 py-4">
+            <div className="w-14 h-14 rounded-full bg-sb-accent/15 flex items-center justify-center mx-auto">
+              <Mail className="w-7 h-7 text-sb-accent" />
+            </div>
+            <h2 className="font-display text-xl text-white">Check with your parent!</h2>
+            <p className="text-sm text-orange-50/60">
+              We sent an email to <span className="text-sb-accent">{parentEmail}</span> with a link to create your account. Ask them to check their inbox (and spam folder).
+            </p>
+            {devLink && (
+              <div className="text-left bg-sb-base border border-sb-border rounded-lg p-3 text-xs text-sb-accent/60">
+                Email sending isn't configured yet in this environment — here's the link that would've been emailed:
+                <a href={devLink} className="block mt-1 text-sb-accent break-all">{devLink}</a>
+              </div>
+            )}
+            <Link to="/" className="inline-block text-sm text-sb-accent hover:underline">Back to StudyBridge</Link>
+          </div>
+        )}
+
+        {step === "student" && (
+          <form onSubmit={openTerms} className="space-y-4">
+            <div className="text-center mb-2">
+              <h1 className="font-display text-xl text-white mb-1">Create your account</h1>
+            </div>
+            <Field label="Username" value={form.username || ""} onChange={set("username")} testId="signup-username" required />
+            <Field label="Email" type="email" value={form.email || ""} onChange={set("email")} testId="signup-email" required />
+            <Field label="Password" type="password" value={form.password || ""} onChange={set("password")} testId="signup-password" required />
+
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-xs tracking-wide uppercase text-sb-accent/60">Grade</span>
+                <select data-testid="signup-grade" value={form.grade} onChange={(e) => set("grade")(e.target.value)} required
+                  className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent">
+                  <option value="" disabled>Select…</option>
+                  {GRADES.map((g) => <option key={g} value={g}>{g === "K" ? "Kindergarten" : `Grade ${g}`}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs tracking-wide uppercase text-sb-accent/60">State</span>
+                <select data-testid="signup-state" value={form.state || ""} onChange={(e) => set("state")(e.target.value)}
+                  className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent">
+                  <option value="">Select…</option>
+                  {states.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+            </div>
+            <Field label="School" value={form.school || ""} onChange={set("school")} testId="signup-school" />
+            <Field label="District" value={form.district || ""} onChange={set("district")} testId="signup-district" />
+
+            <details className="bg-sb-base border border-sb-border rounded-lg p-4">
+              <summary className="cursor-pointer text-base font-medium text-sb-accent hover:text-sb-accentHover">
+                Optional Certificate Emails
+              </summary>
+              <p className="text-xs text-sb-accent/50 mt-1">
+                You can also add or change these later in Settings.
+              </p>
+              <div className="space-y-3 mt-4">
+                <Field label="Principal email" type="email" value={form.principal_email || ""} onChange={set("principal_email")} testId="signup-principal" />
+                <Field label="District email" type="email" value={form.district_email || ""} onChange={set("district_email")} testId="signup-district-email" />
+                <Field label="Library email" type="email" value={form.library_email || ""} onChange={set("library_email")} testId="signup-library" />
+              </div>
+            </details>
+
+            <label className="flex items-center gap-2 text-sm text-sb-accent/70 cursor-pointer">
+              <input type="checkbox" data-testid="signup-homeschool" checked={homeschool} onChange={(e) => setHomeschool(e.target.checked)} className="accent-sb-accent w-4 h-4" />
+              I'm a homeschooler
+            </label>
+
+            <button data-testid="signup-submit" disabled={loading} className="w-full bg-sb-accent text-sb-base py-3 rounded-full font-medium hover:bg-sb-accentHover transition-colors disabled:opacity-50">
+              {loading ? "Creating…" : "Create account"}
+            </button>
+            <button type="button" onClick={() => setStep("age")} className="w-full text-center text-xs text-sb-accent/50 hover:text-sb-accent">← Back</button>
+          </form>
+        )}
+
+        <p className="text-center text-sm text-sb-accent/60 mt-5">
+          Already have an account? <Link to="/login" className="text-sb-accent">Log in</Link>
+        </p>
       </div>
 
-      <div className="relative z-10">
-        <Footer />
-      </div>
-    </div>
-  );
-}
-
-// Animated "electric" moving orange light streaks spanning the screen.
-// Pure CSS transforms/opacity — respects prefers-reduced-motion.
-function ElectricLights() {
-  const streaks = [
-    { top: "8%", duration: "6s", delay: "0s", height: "2px" },
-    { top: "22%", duration: "8s", delay: "1.2s", height: "1px" },
-    { top: "41%", duration: "5.5s", delay: "0.4s", height: "2px" },
-    { top: "63%", duration: "9s", delay: "2s", height: "1px" },
-    { top: "78%", duration: "7s", delay: "0.8s", height: "2px" },
-    { top: "92%", duration: "6.5s", delay: "1.6s", height: "1px" },
-  ];
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden z-0" aria-hidden="true">
-      {streaks.map((s, i) => (
-        <div
-          key={i}
-          className="sb-electric-streak"
-          style={{
-            top: s.top,
-            height: s.height,
-            animationDuration: s.duration,
-            animationDelay: s.delay,
-          }}
-        />
-      ))}
-      <style>{`
-        .sb-electric-streak {
-          position: absolute;
-          left: -30%;
-          width: 30%;
-          background: linear-gradient(90deg, transparent, rgba(250,135,32,0.9), rgba(255,200,120,1), rgba(250,135,32,0.9), transparent);
-          box-shadow: 0 0 12px rgba(250,135,32,0.8), 0 0 24px rgba(250,135,32,0.4);
-          animation-name: sb-electric-move;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-        }
-        @keyframes sb-electric-move {
-          from { left: -30%; }
-          to { left: 130%; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .sb-electric-streak { animation: none; opacity: 0.15; left: 0; width: 100%; }
-        }
-      `}</style>
+      <TermsModal
+        open={showTerms}
+        busy={loading}
+        onAgree={doSubmit}
+        onDecline={() => setShowTerms(false)}
+      />
     </div>
   );
 }
