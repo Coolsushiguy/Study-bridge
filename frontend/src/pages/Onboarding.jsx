@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, TrendingUp } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 
 export default function Onboarding() {
   const { user, refresh } = useAuth();
