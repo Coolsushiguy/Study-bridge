@@ -6,7 +6,7 @@ import {
   LayoutDashboard, BookOpen, Timer, Sparkles, Settings, LogOut,
   ChevronLeft, ChevronRight, Lock, GraduationCap, Bell,
 } from "lucide-react";
-import logo from "@/assets/logo.jpg";
+import logo from "@/assets/logo.png";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,7 +35,7 @@ export default function Sidebar({ collapsed, setCollapsed, onOpenFocus, onOpenNo
       style={{ width: collapsed ? 72 : 248 }}
     >
       <div className="h-16 flex items-center gap-3 px-5 border-b border-sb-border">
-        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0 p-1">
+        <div className="w-8 h-8 flex items-center justify-center shrink-0">
           <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
         </div>
         {!collapsed && <span className="font-display text-sb-accent text-sm">StudyBridge</span>}
