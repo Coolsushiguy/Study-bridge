@@ -21,7 +21,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+import anthropic
 
 from curriculum_data import SUBJECTS, SUBJECT_MAP, get_chapter, US_STATES
 from assessment_data import (
@@ -39,11 +39,13 @@ db = client[os.environ["DB_NAME"]]
 
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+anthropic_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+
+CHAT_MODEL = "claude-sonnet-4-5"
+LESSON_MODEL = "claude-sonnet-4-5"
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
-CHAT_MODEL = ("gemini", "gemini-3-flash-preview")
-LESSON_MODEL = ("gemini", "gemini-3.1-pro-preview")
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -108,16 +110,23 @@ import asyncio
 _llm_lock = asyncio.Lock()
 
 
-async def llm_send(chat, user_message, retries: int = 4):
-    """Send an LLM message. Serialized + retried to respect the shared-key concurrency limit."""
+async def llm_send(model: str, system: str, prompt: str, retries: int = 4):
+    """Send a prompt to Claude via the official Anthropic SDK. Serialized +
+    retried to be gentle on rate limits."""
+    if not anthropic_client:
+        raise RuntimeError("ANTHROPIC_API_KEY is not configured on the backend.")
     async with _llm_lock:
         delay = 1.5
         for attempt in range(retries):
             try:
-                return await chat.send_message(user_message)
+                resp = await anthropic_client.messages.create(
+                    model=model, system=system, max_tokens=4096,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return "".join(block.text for block in resp.content if block.type == "text")
             except Exception as e:
                 msg = str(e).lower()
-                transient = "429" in msg or "rate" in msg or "concurren" in msg
+                transient = "429" in msg or "rate" in msg or "overloaded" in msg
                 if transient and attempt < retries - 1:
                     await asyncio.sleep(delay)
                     delay *= 2
@@ -251,13 +260,6 @@ class ResetBody(BaseModel):
     password: str
 
 
-class ChatBody(BaseModel):
-    message: str
-    session_id: str
-    image_base64: Optional[str] = None
-    subject: Optional[str] = None
-
-
 class AssessmentSubmit(BaseModel):
     test_type: str  # english | overall | career
     answers: List[int]
@@ -268,6 +270,12 @@ class ParentalControls(BaseModel):
     hide_real_name: bool = False
     restrict_usernames: bool = False
     disable_contests: bool = True
+
+
+class CertEmailsBody(BaseModel):
+    principal_email: Optional[str] = ""
+    district_email: Optional[str] = ""
+    library_email: Optional[str] = ""
 
 
 class FeedbackBody(BaseModel):
@@ -694,12 +702,11 @@ Return STRICT JSON only, no markdown fences, with this exact shape:
   ]{lab_schema}
 }}
 Provide exactly 4 lessons, 5 exercises (multiple choice, 4 options each), 5 glossary terms, and 12 kid-safe educational videos (each 'query' must be a specific, safe search phrase suited to {grade_label}).{lab_instruction} Keep language appropriate for {grade_label}."""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"lesson-{uuid.uuid4()}",
-        system_message="You are an expert K-12 curriculum author. Output valid JSON only.",
-    ).with_model(*LESSON_MODEL)
-    resp = await llm_send(chat, UserMessage(text=prompt))
+    resp = await llm_send(
+        model=LESSON_MODEL,
+        system="You are an expert K-12 curriculum author. Output valid JSON only.",
+        prompt=prompt,
+    )
     text = resp.strip()
     text = re.sub(r"^```(json)?", "", text).strip()
     text = re.sub(r"```$", "", text).strip()
@@ -1060,10 +1067,9 @@ async def report_tutor(tutor_id: str, body: TutorReportBody, user: dict = Depend
     # enough to warrant a human's attention — it never bans anyone itself. A real
     # admin always makes the final call via /admin/tutors/{id}/ban.
     try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"report-review-{report_id}",
-            system_message=(
+        resp = await llm_send(
+            model=CHAT_MODEL,
+            system=(
                 "You triage user reports about tutors on an education platform. "
                 "Judge only whether THIS report is specific, plausible, and describes "
                 "genuine misconduct (harassment, inappropriate content, unsafe behavior, "
@@ -1071,10 +1077,8 @@ async def report_tutor(tutor_id: str, body: TutorReportBody, user: dict = Depend
                 "grading/personality, or spam. Output strict JSON only: "
                 '{"valid": true or false, "reasoning": "one sentence"}'
             ),
-        ).with_model(*CHAT_MODEL)
-        resp = await llm_send(chat, UserMessage(
-            text=f"Reason category: {body.reason}\nReport details: {body.details}"
-        ))
+            prompt=f"Reason category: {body.reason}\nReport details: {body.details}",
+        )
         text = re.sub(r"^```(json)?|```$", "", resp.strip()).strip()
         match = re.search(r"\{.*\}", text, re.DOTALL)
         verdict = json.loads(match.group(0)) if match else {"valid": True, "reasoning": "AI review unavailable — defaulting to flagged for safety."}
@@ -1273,57 +1277,22 @@ async def answer_assessment(body: dict, user: dict = Depends(get_current_user)):
     return {"done": False, "question": _public_question(test_type, next_idx, number, session["total"], difficulty)}
 
 
-# ---------------- AI helper ----------------
-AI_HELPER_PROMPT = """You are StudyBridge Buddy, a kind, patient K-12 study helper.
-CRITICAL RULES:
-- You DISCUSS, you do NOT simply give final answers. Guide the student to think.
-- Ask guiding questions. Give hints and break problems into steps.
-- Only after the student has genuinely tried across a few turns should you confirm a final answer.
-- Be encouraging, safe, and age-appropriate. Never discuss unsafe or adult topics.
-- Keep replies short and warm."""
-
-
-@api.post("/ai/helper")
-async def ai_helper(body: ChatBody, user: dict = Depends(get_current_user)):
-    if user.get("parental_controls", {}).get("prohibit_chat") and user.get("account_type") == "parent_led":
-        # AI helper is allowed even for K-5 (it's the tutor CHAT that's blocked). Keep helper on.
-        pass
-    session_id = f"helper-{user['id']}-{body.session_id}"
-    await db.chat_messages.insert_one({
-        "user_id": user["id"], "session_id": session_id, "role": "user",
-        "text": body.message, "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=AI_HELPER_PROMPT
-    ).with_model(*CHAT_MODEL)
-    msg_kwargs = {"text": body.message or "Please look at my question in the image."}
-    if body.image_base64:
-        b64 = body.image_base64.split(",")[-1]
-        msg_kwargs["file_contents"] = [ImageContent(image_base64=b64)]
-    try:
-        reply = await llm_send(chat, UserMessage(**msg_kwargs))
-    except Exception as e:
-        logger.error(f"AI helper failed: {e}")
-        raise HTTPException(status_code=502, detail="The helper is unavailable right now. Please try again.")
-    await db.chat_messages.insert_one({
-        "user_id": user["id"], "session_id": session_id, "role": "assistant",
-        "text": reply, "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return {"reply": reply}
-
-
-@api.get("/ai/history/{session_id}")
-async def ai_history(session_id: str, user: dict = Depends(get_current_user)):
-    sid = f"helper-{user['id']}-{session_id}"
-    msgs = await db.chat_messages.find({"user_id": user["id"], "session_id": sid}).sort("created_at", 1).to_list(200)
-    return {"messages": [clean(m) for m in msgs]}
-
-
 # ---------------- parental controls & feedback ----------------
 @api.put("/parental-controls")
 async def update_controls(body: ParentalControls, user: dict = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"parental_controls": body.model_dump()}})
     return {"success": True, "parental_controls": body.model_dump()}
+
+
+@api.put("/profile/cert-emails")
+async def update_cert_emails(body: CertEmailsBody, user: dict = Depends(get_current_user)):
+    cert_emails = {
+        "principal": body.principal_email or "",
+        "district": body.district_email or "",
+        "library": body.library_email or "",
+    }
+    await db.users.update_one({"id": user["id"]}, {"$set": {"cert_emails": cert_emails}})
+    return {"success": True, "cert_emails": cert_emails}
 
 
 @api.get("/feedback/eligible")
