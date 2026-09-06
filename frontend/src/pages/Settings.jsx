@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldCheck, MessageSquare, Lock } from "lucide-react";
+import { ShieldCheck, MessageSquare, Lock, Mail } from "lucide-react";
 
 const CONTROLS = [
   { key: "prohibit_chat", label: "Prohibit tutor chat", desc: "Blocks tutor messaging (unlocks at 10k users)." },
@@ -62,6 +62,30 @@ export default function Settings() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [unlocked, setUnlocked] = useState(false);
+  const [certEmails, setCertEmails] = useState({
+    principal_email: user?.cert_emails?.principal || "",
+    district_email: user?.cert_emails?.district || "",
+    library_email: user?.cert_emails?.library || "",
+  });
+  const [savingCerts, setSavingCerts] = useState(false);
+
+  useEffect(() => {
+    setCertEmails({
+      principal_email: user?.cert_emails?.principal || "",
+      district_email: user?.cert_emails?.district || "",
+      library_email: user?.cert_emails?.library || "",
+    });
+  }, [user]);
+
+  const saveCertEmails = async () => {
+    setSavingCerts(true);
+    try {
+      await api.put("/profile/cert-emails", certEmails);
+      await refresh();
+      toast.success("Certificate emails saved");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setSavingCerts(false); }
+  };
 
   useEffect(() => { setControls(user?.parental_controls || {}); }, [user]);
   useEffect(() => { api.get("/feedback/eligible").then(({ data }) => setEligible(data.eligible)).catch(() => {}); }, []);
@@ -115,6 +139,35 @@ export default function Settings() {
       <button data-testid="save-controls" onClick={save} disabled={saving} className="bg-sb-accent text-sb-base px-6 py-3 rounded-full font-medium disabled:opacity-50">
         {saving ? "Saving…" : "Save controls"}
       </button>
+
+      <div className="sb-card rounded-2xl p-6">
+        <p className="text-orange-100 flex items-center gap-2 mb-1 text-lg font-medium"><Mail className="w-5 h-5 text-sb-accent" /> Certificate Emails</p>
+        <p className="text-sm text-orange-50/50 mb-4">Optional — used to send progress certificates. You can update these anytime.</p>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-xs tracking-wide uppercase text-sb-accent/60">Principal email</span>
+            <input type="email" data-testid="settings-principal-email" value={certEmails.principal_email}
+              onChange={(e) => setCertEmails((p) => ({ ...p, principal_email: e.target.value }))}
+              className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3.5 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent" />
+          </label>
+          <label className="block">
+            <span className="text-xs tracking-wide uppercase text-sb-accent/60">District email</span>
+            <input type="email" data-testid="settings-district-email" value={certEmails.district_email}
+              onChange={(e) => setCertEmails((p) => ({ ...p, district_email: e.target.value }))}
+              className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3.5 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent" />
+          </label>
+          <label className="block">
+            <span className="text-xs tracking-wide uppercase text-sb-accent/60">Library email</span>
+            <input type="email" data-testid="settings-library-email" value={certEmails.library_email}
+              onChange={(e) => setCertEmails((p) => ({ ...p, library_email: e.target.value }))}
+              className="mt-1.5 w-full bg-sb-base border border-sb-border rounded-lg px-3.5 py-2.5 text-orange-50 focus:outline-none focus:ring-2 focus:ring-sb-accent" />
+          </label>
+        </div>
+        <button data-testid="save-cert-emails" onClick={saveCertEmails} disabled={savingCerts}
+          className="mt-4 bg-sb-accent text-sb-base px-6 py-2.5 rounded-full font-medium disabled:opacity-50">
+          {savingCerts ? "Saving…" : "Save emails"}
+        </button>
+      </div>
 
       {eligible && (
         <div className="sb-card rounded-2xl p-6">
