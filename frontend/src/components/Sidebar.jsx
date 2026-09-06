@@ -6,7 +6,7 @@ import {
   LayoutDashboard, BookOpen, Timer, Sparkles, Settings, LogOut,
   ChevronLeft, ChevronRight, Lock, GraduationCap, Bell,
 } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
