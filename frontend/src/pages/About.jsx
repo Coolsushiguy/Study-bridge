@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 import Footer from "@/components/Footer";
 
 const SECTIONS = [
