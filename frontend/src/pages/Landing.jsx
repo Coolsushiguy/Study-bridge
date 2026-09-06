@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck, Flame, BookOpen, Timer, ArrowRight, Users } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 import api from "@/lib/api";
 import Footer from "@/components/Footer";
 
