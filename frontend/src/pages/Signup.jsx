@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GraduationCap, ShieldCheck, Lock, Mail } from "lucide-react";
+import { ShieldCheck, Lock, Mail } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
@@ -77,7 +78,7 @@ export default function Signup() {
     <div className="min-h-screen flex items-center justify-center bg-sb-base sb-grain px-6 py-12">
       <div className="w-full max-w-lg sb-card rounded-3xl p-8 sm:p-10 sb-fade-up">
         <Link to="/" className="flex items-center gap-2 justify-center mb-6">
-          <div className="w-9 h-9 rounded-lg bg-sb-accent flex items-center justify-center"><GraduationCap className="w-5 h-5 text-sb-base" /></div>
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
           <span className="font-display text-sb-accent">StudyBridge</span>
         </Link>
 
