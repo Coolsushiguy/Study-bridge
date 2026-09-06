@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { GraduationCap, ShieldCheck, Sparkles, BookOpen, Timer, ArrowRight, Users } from "lucide-react";
+import { ShieldCheck, Flame, BookOpen, Timer, ArrowRight, Users } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 import api from "@/lib/api";
 import Footer from "@/components/Footer";
 
@@ -14,8 +15,8 @@ export default function Landing() {
     <div className="min-h-screen bg-sb-base sb-grain">
       <header className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-sb-accent flex items-center justify-center">
-            <GraduationCap className="w-5 h-5 text-sb-base" />
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1">
+            <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
           </div>
           <span className="font-display text-sb-accent">StudyBridge</span>
         </div>
@@ -66,7 +67,7 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-6 pb-20 grid md:grid-cols-3 gap-6">
         {[
           { icon: BookOpen, t: "Personalized lessons", d: "Chapters, lessons, exercises and glossaries tailored per grade — built to match how you actually learn." },
-          { icon: Sparkles, t: "Discuss, don't answer", d: "Sol guides you with hints and questions so you truly learn — upload a photo of any problem." },
+          { icon: Flame, t: "Daily streaks", d: "Build a study streak with emoji milestones that keep you coming back every day." },
           { icon: Timer, t: "Focus Mode", d: "A distraction-free in-app timer that keeps you on your study pages until the session ends." },
         ].map((f, i) => (
           <div key={i} className="sb-card rounded-2xl p-8 hover:-translate-y-1 transition-transform duration-300">
