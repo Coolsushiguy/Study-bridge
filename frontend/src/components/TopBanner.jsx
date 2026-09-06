@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ShieldCheck, GraduationCap } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 
 export default function TopBanner() {
   const [visible, setVisible] = useState(true);
@@ -34,7 +35,7 @@ export default function TopBanner() {
       >
         <div className="max-w-7xl mx-auto px-6 h-11 flex items-center justify-between text-sm">
           <Link to="/dashboard" className="flex items-center gap-2 font-display text-sb-accent">
-            <GraduationCap className="w-4 h-4" /> StudyBridge
+            <img src={logo} alt="StudyBridge" className="w-4 h-4 object-contain" /> StudyBridge
           </Link>
           <div className="flex items-center gap-2 text-sb-accent/80 text-xs">
             <ShieldCheck className="w-3.5 h-3.5" />
