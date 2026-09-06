@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GraduationCap } from "lucide-react";
+import logo from "@/assets/logo.jpg";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -39,7 +39,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-sb-base sb-grain px-6">
       <div className="w-full max-w-md sb-card rounded-3xl p-10 sb-fade-up">
         <Link to="/" className="flex items-center gap-2 justify-center mb-8">
-          <div className="w-9 h-9 rounded-lg bg-sb-accent flex items-center justify-center"><GraduationCap className="w-5 h-5 text-sb-base" /></div>
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
           <span className="font-display text-sb-accent">StudyBridge</span>
         </Link>
         <h1 className="font-display text-2xl text-white text-center mb-6">Welcome back</h1>
