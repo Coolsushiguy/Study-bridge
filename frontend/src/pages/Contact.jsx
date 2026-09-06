@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Mail } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 
 export default function Contact() {
   return (
