@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { ShieldCheck, Lock } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/logo.png";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
