@@ -1,197 +1,101 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { ShieldCheck, X } from "lucide-react";
 
-export default function TermsModal({ open, onClose, onAccept }) {
-  const [agreed, setAgreed] = useState(false);
+const TERMS_INTRO = "By agreeing to the Terms and Conditions, I agree that:";
+
+const TERMS_POINTS = [
+  "I have read, understood, and agree to follow StudyBridge's Terms of Use, Privacy Policy, and applicable safety policies.",
+  "I understand that tutors using StudyBridge may be independent individuals and are responsible for their own conduct, communications, tutoring services, and compliance with applicable laws.",
+  "I understand that StudyBridge does not guarantee that every tutor or user will behave appropriately and cannot guarantee that all misconduct will be prevented or detected.",
+  "I understand that StudyBridge may suspend or permanently ban tutors or other users who violate StudyBridge's rules or engage in inappropriate, abusive, exploitative, illegal, or unsafe conduct.",
+  "I understand that StudyBridge may investigate reports of misconduct and may take appropriate action, including restricting accounts, removing content, and contacting parents, guardians, law enforcement, or other appropriate authorities when permitted or required by law.",
+  "I understand that I should immediately report suspected abuse, harassment, grooming, threats, exploitation, or other unsafe behavior through StudyBridge's reporting system and, when appropriate, directly to the relevant authorities.",
+  "I understand that StudyBridge is a platform that facilitates educational interactions and does not guarantee the qualifications, behavior, actions, or results of any individual tutor.",
+  "I understand that I am responsible for my own actions and for complying with StudyBridge's rules while using the Service.",
+  "I understand that StudyBridge's Terms include limitations of liability and other legal provisions to the maximum extent permitted by applicable law.",
+  "I understand that nothing in the Terms removes or limits rights or protections that cannot legally be waived.",
+  "If I am agreeing on behalf of a minor, I confirm that I am the minor's parent or legal guardian and have the authority to provide consent on the minor's behalf.",
+  "I understand that agreeing to these Terms does not guarantee that the Service will be free from risks, misconduct, technical problems, or other issues.",
+];
+
+export default function TermsModal({ open, onAgree, onDecline, busy }) {
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const scrollRef = useRef(null);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 12;
+    if (atBottom) setScrolledToBottom(true);
+  };
 
   if (!open) return null;
 
-  const handleContinue = () => {
-    if (!agreed) return;
-    if (onAccept) onAccept();
-    onClose();
-  };
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: "20px",
-      }}
-    >
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" data-testid="terms-modal">
+      <div className="absolute inset-0 bg-black/70" onClick={onDecline} />
       <div
-        style={{
-          background: "white",
-          color: "#1a1a1a",
-          padding: "32px",
-          borderRadius: "12px",
-          maxWidth: "700px",
-          width: "100%",
-          maxHeight: "80vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
+        className="relative w-full max-w-lg bg-white border border-gray-300 rounded-2xl flex flex-col max-h-[85vh] shadow-2xl"
+        style={{ backgroundColor: "#ffffff" }}
       >
-        <div
-          style={{
-            overflowY: "auto",
-            paddingRight: "8px",
-            marginBottom: "20px",
-            lineHeight: 1.6,
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>StudyBridge Terms & Conditions</h2>
-          <p style={{ fontStyle: "italic", color: "#666" }}>
-            Last updated: September 2026
-          </p>
-
-          <h3>1. Acceptance of Terms</h3>
-          <p>
-            By creating an account or using StudyBridge ("the Platform"), you
-            agree to these Terms & Conditions. If you are under 18, a parent
-            or legal guardian must review and accept these terms on your
-            behalf, and by permitting your use of the Platform, they do so.
-          </p>
-
-          <h3>2. Eligibility & Accounts</h3>
-          <p>
-            StudyBridge is a student-led nonprofit platform connecting
-            student tutors with students seeking academic help. Users in
-            grade 5 and under must have an account created and managed by a
-            parent or legal guardian. Users grade 6 and above may create
-            their own account, subject to parental oversight settings where
-            applicable. You agree to provide accurate information during
-            signup, including school and district details.
-          </p>
-
-          <h3>3. Tutor Verification & Conduct</h3>
-          <p>
-            Student tutors are subject to eligibility requirements (including
-            minimum GPA and a clean behavior record) and annual
-            re-verification. StudyBridge reserves the right to suspend,
-            demote, or permanently remove any tutor or student for violations
-            of our code of conduct, including but not limited to harassment,
-            dishonesty, or misuse of the messaging or AI systems.
-          </p>
-
-          <h3>4. Messaging & Communication</h3>
-          <p>
-            Messaging is restricted to matched tutor-student pairs and
-            admin-user communication. All messages may be logged and
-            reviewed for safety and moderation purposes. Users may report or
-            block other users at any time.
-          </p>
-
-          <h3>5. Sol AI</h3>
-          <p>
-            StudyBridge provides an AI-assisted learning tool ("Sol AI")
-            intended to support, not replace, human tutoring and
-            instruction. Sol AI's responses may contain errors and should
-            not be treated as a substitute for professional academic or
-            educational advice.
-          </p>
-
-          <h3>6. Privacy & Children's Data</h3>
-          <p>
-            We collect certain personal information (name, school, district,
-            academic records) necessary to operate the Platform. For users
-            under 13, we collect only the information necessary for
-            participation and require verifiable parental consent before
-            collection, in accordance with applicable law. Parents may
-            review, request deletion of, or restrict further collection of
-            their child's information at any time by contacting us at
-            studybridge.cooperate@protonmail.com.
-          </p>
-
-          <h3>7. Academic Outcomes</h3>
-          <p>
-            StudyBridge does not guarantee specific academic results, grade
-            improvements, or admissions outcomes from use of the Platform.
-          </p>
-
-          <h3>8. Intellectual Property</h3>
-          <p>
-            All original content, curricula, and platform design are the
-            property of StudyBridge. Users retain ownership of original work
-            they submit (e.g., assignment responses) but grant StudyBridge a
-            limited license to store and process that content to operate the
-            Platform.
-          </p>
-
-          <h3>9. Limitation of Liability</h3>
-          <p>
-            StudyBridge is provided "as is" without warranties of any kind.
-            To the fullest extent permitted by law, StudyBridge and its
-            founders are not liable for indirect, incidental, or
-            consequential damages arising from use of the Platform.
-          </p>
-
-          <h3>10. Termination</h3>
-          <p>
-            We reserve the right to suspend or terminate any account that
-            violates these terms or poses a safety risk to other users.
-          </p>
-
-          <h3>11. Changes to These Terms</h3>
-          <p>
-            We may update these Terms from time to time. Continued use of
-            the Platform after changes take effect constitutes acceptance of
-            the revised terms.
-          </p>
-
-          <h3>12. Contact</h3>
-          <p>
-            Questions about these terms can be sent to
-            studybridge.cooperate@protonmail.com.
-          </p>
+        <div className="px-6 pt-6 pb-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-orange-500 shrink-0" />
+            <h2 className="text-lg font-semibold" style={{ color: "#111111" }}>Terms and Conditions</h2>
+          </div>
+          <button
+            type="button"
+            data-testid="terms-close"
+            onClick={onDecline}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            style={{ color: "#111111" }}
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <label
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "10px",
-            fontSize: "14px",
-            marginBottom: "16px",
-            cursor: "pointer",
-          }}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          data-testid="terms-scroll-area"
+          className="overflow-y-auto px-6 py-5 text-sm leading-relaxed space-y-3"
+          style={{ color: "#1a1a1a" }}
         >
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            style={{ marginTop: "3px" }}
-          />
-          I have read and agree to the StudyBridge Terms & Conditions.
-        </label>
+          <p className="font-medium" style={{ color: "#000000" }}>{TERMS_INTRO}</p>
+          <ul className="space-y-3 list-disc pl-5">
+            {TERMS_POINTS.map((point, i) => (
+              <li key={i} style={{ color: "#1a1a1a" }}>{point}</li>
+            ))}
+          </ul>
+        </div>
 
-        <button
-          onClick={handleContinue}
-          disabled={!agreed}
-          style={{
-            padding: "12px 20px",
-            borderRadius: "8px",
-            border: "none",
-            fontWeight: 600,
-            fontSize: "15px",
-            cursor: agreed ? "pointer" : "not-allowed",
-            background: agreed ? "#598556" : "#ccc",
-            color: "white",
-            transition: "background 0.2s",
-          }}
-        >
-          Continue
-        </button>
+        <div className="px-6 py-5 border-t border-gray-200 space-y-3">
+          {!scrolledToBottom && (
+            <p className="text-xs text-center" style={{ color: "#666666" }}>Scroll to the bottom to continue.</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              data-testid="terms-decline"
+              onClick={onDecline}
+              className="flex-1 py-2.5 rounded-full border text-sm font-medium hover:bg-gray-50 transition-colors"
+              style={{ borderColor: "#cccccc", color: "#333333" }}
+            >
+              Decline
+            </button>
+            <button
+              type="button"
+              data-testid="terms-agree"
+              disabled={!scrolledToBottom || busy}
+              onClick={onAgree}
+              className="flex-1 py-2.5 rounded-full font-medium text-sm text-white disabled:opacity-40 transition-colors"
+              style={{ backgroundColor: "#FA8720" }}
+            >
+              {busy ? "…" : "I Agree"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
