@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import logo from "@/assets/logo.jpg";
+import logo from "@/assets/logo.png";
 import Footer from "@/components/Footer";
 
 const SECTIONS = [
@@ -32,7 +32,7 @@ export default function About() {
         </Link>
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1">
+          <div className="w-10 h-10 flex items-center justify-center">
             <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
           </div>
           <h1 className="font-display text-3xl text-white">About StudyBridge</h1>
