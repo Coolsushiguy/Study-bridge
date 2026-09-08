@@ -40,7 +40,11 @@ db = client[os.environ["DB_NAME"]]
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-anthropic_client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+anthropic_client = (
+    anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY, timeout=45.0, max_retries=0)
+    if ANTHROPIC_API_KEY else None
+)  # timeout=45s + max_retries=0: we handle retries ourselves below, and a hung
+   # request should fail fast rather than hang indefinitely.
 
 CHAT_MODEL = "claude-sonnet-4-5"
 LESSON_MODEL = "claude-sonnet-4-5"
@@ -107,31 +111,31 @@ async def get_current_user(request: Request) -> dict:
 
 import asyncio
 
-_llm_lock = asyncio.Lock()
 
 
 async def llm_send(model: str, system: str, prompt: str, retries: int = 4):
-    """Send a prompt to Claude via the official Anthropic SDK. Serialized +
-    retried to be gentle on rate limits."""
+    """Send a prompt to Claude via the official Anthropic SDK, with our own
+    retry-with-backoff for genuine rate-limit responses. Requests run
+    concurrently — no artificial serialization, since we're on our own
+    dedicated API key now, not a shared/rate-limited one."""
     if not anthropic_client:
         raise RuntimeError("ANTHROPIC_API_KEY is not configured on the backend.")
-    async with _llm_lock:
-        delay = 1.5
-        for attempt in range(retries):
-            try:
-                resp = await anthropic_client.messages.create(
-                    model=model, system=system, max_tokens=4096,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                return "".join(block.text for block in resp.content if block.type == "text")
-            except Exception as e:
-                msg = str(e).lower()
-                transient = "429" in msg or "rate" in msg or "overloaded" in msg
-                if transient and attempt < retries - 1:
-                    await asyncio.sleep(delay)
-                    delay *= 2
-                    continue
-                raise
+    delay = 1.5
+    for attempt in range(retries):
+        try:
+            resp = await anthropic_client.messages.create(
+                model=model, system=system, max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return "".join(block.text for block in resp.content if block.type == "text")
+        except Exception as e:
+            msg = str(e).lower()
+            transient = "429" in msg or "rate" in msg or "overloaded" in msg
+            if transient and attempt < retries - 1:
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+            raise
 
 
 def grade_to_int(grade: str) -> int:
@@ -249,6 +253,13 @@ class ParentRegister(BaseModel):
 class LoginBody(BaseModel):
     email: EmailStr
     password: str
+
+
+class ChatBody(BaseModel):
+    message: str
+    session_id: str
+    image_base64: Optional[str] = None
+    subject: Optional[str] = None
 
 
 class ForgotBody(BaseModel):
@@ -657,6 +668,23 @@ async def stats():
     }
 
 
+@api.get("/dashboard/stats")
+async def dashboard_stats(user: dict = Depends(get_current_user)):
+    """Real per-student stats for the dashboard: streak, exercises completed, chapter mastery."""
+    progress_docs = await db.progress.find({"user_id": user["id"]}).to_list(1000)
+    exercises_completed = sum(1 for p in progress_docs if p.get("state") in ("pass", "mastery"))
+    attempted = len(progress_docs)
+    mastered = sum(1 for p in progress_docs if p.get("state") == "mastery")
+    mastery_pct = round(mastered / attempted * 100) if attempted else 0
+    return {
+        "current_streak": user.get("current_streak", 0),
+        "longest_streak": user.get("longest_streak", 0),
+        "exercises_completed": exercises_completed,
+        "chapters_attempted": attempted,
+        "chapter_mastery_pct": mastery_pct,
+    }
+
+
 # ---------------- curriculum ----------------
 @api.get("/subjects")
 async def subjects(user: dict = Depends(get_current_user)):
@@ -994,6 +1022,85 @@ async def skip_assessments(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Your 2-week grace period has ended — placement tests are now required.")
     await db.users.update_one({"id": user["id"]}, {"$set": {"assessment_skipped": True}})
     return {"success": True}
+
+
+# ---------------- Sol (AI helper) ----------------
+AI_HELPER_PROMPT = """You are Sol, a kind, patient K-12 study helper for StudyBridge.
+CRITICAL RULES:
+- You DISCUSS, you do NOT simply give final answers. Guide the student to think.
+- Ask guiding questions. Give hints and break problems into steps.
+- Only after the student has genuinely tried across a few turns should you confirm a final answer.
+- Be encouraging, safe, and age-appropriate. Never discuss unsafe or adult topics.
+- Keep replies short and warm."""
+
+
+async def _sol_send(messages: list, retries: int = 4):
+    """Direct multi-turn Anthropic call for Sol (separate from llm_send, which
+    only handles single-prompt calls used by lesson generation / report triage).
+    Runs concurrently across users — no artificial serialization."""
+    if not anthropic_client:
+        raise RuntimeError("ANTHROPIC_API_KEY is not configured on the backend.")
+    delay = 1.5
+    for attempt in range(retries):
+        try:
+            resp = await anthropic_client.messages.create(
+                model=CHAT_MODEL, system=AI_HELPER_PROMPT, max_tokens=1024, messages=messages,
+            )
+            return "".join(block.text for block in resp.content if block.type == "text")
+        except Exception as e:
+            msg = str(e).lower()
+            transient = "429" in msg or "rate" in msg or "overloaded" in msg
+            if transient and attempt < retries - 1:
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+            raise
+
+
+@api.post("/ai/helper")
+async def ai_helper(body: ChatBody, user: dict = Depends(get_current_user)):
+    session_id = f"helper-{user['id']}-{body.session_id}"
+
+    # Anthropic's API is stateless, so we rebuild the conversation from what's
+    # already stored in the DB rather than relying on any hidden server-side memory.
+    history_docs = await db.chat_messages.find(
+        {"user_id": user["id"], "session_id": session_id}
+    ).sort("created_at", 1).to_list(40)  # cap history length sent per turn
+
+    await db.chat_messages.insert_one({
+        "user_id": user["id"], "session_id": session_id, "role": "user",
+        "text": body.message, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    messages = [{"role": d["role"], "content": d["text"]} for d in history_docs]
+
+    user_content = []
+    if body.image_base64:
+        b64 = body.image_base64.split(",")[-1]
+        user_content.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": "image/jpeg", "data": b64},
+        })
+    user_content.append({"type": "text", "text": body.message or "Please look at my question in the image."})
+    messages.append({"role": "user", "content": user_content})
+
+    try:
+        reply = await _sol_send(messages)
+    except Exception as e:
+        logger.error(f"Sol (AI helper) failed: {e}")
+        raise HTTPException(status_code=502, detail="Sol is unavailable right now. Please try again.")
+    await db.chat_messages.insert_one({
+        "user_id": user["id"], "session_id": session_id, "role": "assistant",
+        "text": reply, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"reply": reply}
+
+
+@api.get("/ai/history/{session_id}")
+async def ai_history(session_id: str, user: dict = Depends(get_current_user)):
+    sid = f"helper-{user['id']}-{session_id}"
+    msgs = await db.chat_messages.find({"user_id": user["id"], "session_id": sid}).sort("created_at", 1).to_list(200)
+    return {"messages": [clean(m) for m in msgs]}
 
 
 # ---------------- tutors: promotion, profile, reporting, banning ----------------
