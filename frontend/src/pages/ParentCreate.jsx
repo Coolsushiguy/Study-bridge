@@ -6,6 +6,7 @@ import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Field } from "@/pages/Login";
 import TermsModal from "@/components/TermsModal";
+import ProgressRing from "@/components/ProgressRing";
 import { toast } from "sonner";
 
 const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -63,7 +64,7 @@ export default function ParentCreate() {
     <div className="min-h-screen flex items-center justify-center bg-sb-base sb-grain px-6 py-12">
       <div className="w-full max-w-lg sb-card rounded-3xl p-8 sm:p-10 sb-fade-up">
         <Link to="/" className="flex items-center gap-2 justify-center mb-6">
-          <div className="w-9 h-9 flex items-center justify-center"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
+          <div className="w-16 h-16 flex items-center justify-center"><img src={logo} alt="StudyBridge" className="w-full h-full object-contain" /></div>
           <span className="font-display text-sb-accent">StudyBridge</span>
         </Link>
 
@@ -134,6 +135,14 @@ export default function ParentCreate() {
         onAgree={doSubmit}
         onDecline={() => setShowTerms(false)}
       />
+
+      {loading && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70" data-testid="creating-overlay">
+          <div className="bg-white rounded-2xl px-10 py-8 shadow-2xl">
+            <ProgressRing active={loading} label="Creating your account… this can take up to a minute on first load." />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
