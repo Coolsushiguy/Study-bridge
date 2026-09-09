@@ -15,7 +15,7 @@ export default function Landing() {
     <div className="min-h-screen bg-sb-base sb-grain">
       <header className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex items-center justify-center">
+          <div className="w-16 h-16 flex items-center justify-center">
             <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
           </div>
           <span className="font-display text-sb-accent">StudyBridge</span>
