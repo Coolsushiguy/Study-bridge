@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { BookOpen, Users, TrendingUp, ArrowRight, Sparkles, Compass, Eye } from "lucide-react";
+import { BookOpen, ArrowRight, Compass, Flame, CheckCircle2, Trophy } from "lucide-react";
 
 // 12AM-9AM sleepy, 10AM-2PM wave, 3PM-6PM sunset, 7PM-12AM moon
 function timeGreeting() {
   const h = new Date().getHours();
   if (h >= 0 && h < 10) return { emoji: "😴", label: "Still early" };
   if (h >= 10 && h < 15) return { emoji: "👋", label: "Good day" };
-  if (h >= 15 && h < 19) return { emoji: "🌇", label: "Good evening" };
+  if (h >= 15 && h < 19) return { emoji: "😎", label: "Good evening" };
   return { emoji: "🌙", label: "Good night" };
 }
 
 function streakDisplay(current, justBroken) {
-  if (justBroken) return { emoji: "🥶😓", label: "Streak lost — start a new one today" };
+  if (justBroken) return { emoji: "🥶😓🫠", label: "Streak lost — start a new one today" };
   if (!current) return { emoji: "✨", label: "Start your streak today" };
   if (current >= 30) return { emoji: "💪🔥", label: `${current} day streak` };
   if (current >= 14) return { emoji: "❤️‍🔥", label: `${current} day streak` };
@@ -24,12 +24,12 @@ function streakDisplay(current, justBroken) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState(null);
+  const [myStats, setMyStats] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [career, setCareer] = useState(null);
 
   useEffect(() => {
-    api.get("/stats").then(({ data }) => setStats(data)).catch(() => {});
+    api.get("/dashboard/stats").then(({ data }) => setMyStats(data)).catch(() => {});
     api.get("/subjects").then(({ data }) => setSubjects(data.subjects)).catch(() => {});
     api.get("/career/retake-status").then(({ data }) => setCareer(data)).catch(() => {});
   }, []);
@@ -69,11 +69,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Users} label="Student users" value={stats ? `${stats.registered_users.toLocaleString()}${stats.nationwide ? " nationwide" : ""}` : "—"} sub={`${stats?.progress_pct || 0}% to 10k unlock`} />
-        <StatCard icon={Eye} label="Site visits" value={stats ? stats.total_visits.toLocaleString() : "—"} sub={stats ? `${stats.visits_until_contests.toLocaleString()} until Contests` : "—"} />
-        <StatCard icon={TrendingUp} label="Onboarding" value={user?.onboarding_complete ? "Complete" : "In progress"} sub={user?.needs_assessment ? "Assessments pending" : "Ready to learn"} />
-        <StatCard icon={Sparkles} label="Sol" value="Always on" sub="Discuss, don't answer" />
+      <div className="grid md:grid-cols-3 gap-6">
+        <StatCard icon={Flame} label="Day streak" value={myStats ? myStats.current_streak : "—"} sub={myStats?.longest_streak ? `Best: ${myStats.longest_streak} days` : "Keep it going"} />
+        <StatCard icon={CheckCircle2} label="Exercises completed" value={myStats ? myStats.exercises_completed : "—"} sub={myStats ? `${myStats.chapters_attempted} chapters attempted` : "—"} />
+        <StatCard icon={Trophy} label="Chapter mastery" value={myStats ? `${myStats.chapter_mastery_pct}%` : "—"} sub="Of chapters you've attempted" />
       </div>
 
       <div>
