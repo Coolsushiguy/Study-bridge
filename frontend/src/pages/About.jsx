@@ -32,7 +32,7 @@ export default function About() {
         </Link>
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 flex items-center justify-center">
+          <div className="w-16 h-16 flex items-center justify-center">
             <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
           </div>
           <h1 className="font-display text-3xl text-white">About StudyBridge</h1>
