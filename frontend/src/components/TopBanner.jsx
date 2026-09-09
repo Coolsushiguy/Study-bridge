@@ -35,7 +35,7 @@ export default function TopBanner() {
       >
         <div className="max-w-7xl mx-auto px-6 h-11 flex items-center justify-between text-sm">
           <Link to="/dashboard" className="flex items-center gap-2 font-display text-sb-accent">
-            <img src={logo} alt="StudyBridge" className="w-4 h-4 object-contain" /> StudyBridge
+            <img src={logo} alt="StudyBridge" className="w-6 h-6 object-contain" /> StudyBridge
           </Link>
           <div className="flex items-center gap-2 text-sb-accent/80 text-xs">
             <ShieldCheck className="w-3.5 h-3.5" />
