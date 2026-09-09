@@ -19,7 +19,7 @@ const LOCKED = [
   { label: "Contests", icon: Sparkles },
 ];
 
-export default function Sidebar({ collapsed, setCollapsed, onOpenFocus, onOpenNotifications }) {
+export default function Sidebar({ collapsed, setCollapsed, onOpenAi, onOpenFocus, onOpenNotifications }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [hasUnread, setHasUnread] = useState(false);
@@ -35,7 +35,7 @@ export default function Sidebar({ collapsed, setCollapsed, onOpenFocus, onOpenNo
       style={{ width: collapsed ? 72 : 248 }}
     >
       <div className="h-16 flex items-center gap-3 px-5 border-b border-sb-border">
-        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+        <div className="w-11 h-11 flex items-center justify-center shrink-0">
           <img src={logo} alt="StudyBridge" className="w-full h-full object-contain" />
         </div>
         {!collapsed && <span className="font-display text-sb-accent text-sm">StudyBridge</span>}
@@ -58,6 +58,14 @@ export default function Sidebar({ collapsed, setCollapsed, onOpenFocus, onOpenNo
           </NavLink>
         ))}
 
+        <button
+          data-testid="nav-ai-helper"
+          onClick={onOpenAi}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sb-accent/60 hover:text-sb-accent hover:bg-sb-elevated transition-colors duration-200"
+        >
+          <Sparkles className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Sol</span>}
+        </button>
         <button
           data-testid="nav-focus"
           onClick={onOpenFocus}
