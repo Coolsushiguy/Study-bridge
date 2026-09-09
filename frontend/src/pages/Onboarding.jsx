@@ -154,7 +154,7 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-sb-base sb-grain px-6 py-12">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-2 mb-2"><img src={logo} alt="StudyBridge" className="w-5 h-5 object-contain" /><span className="font-display text-sb-accent">StudyBridge</span></div>
+        <div className="flex items-center gap-2 mb-2"><img src={logo} alt="StudyBridge" className="w-7 h-7 object-contain" /><span className="font-display text-sb-accent">StudyBridge</span></div>
         <h1 className="font-display text-3xl text-white mb-3">Let's get you set up</h1>
         {pastDeadline ? (
           <p className="text-sm text-red-300 mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Your 2-week grace period has ended — these are now required to continue.</p>
