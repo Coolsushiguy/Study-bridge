@@ -1453,10 +1453,21 @@ async def root():
 
 
 app.include_router(api)
+
+# CORS: this app authenticates via Bearer tokens (Authorization header), not
+# cookies, so allow_credentials must be False — combining it with a wildcard
+# origin is invalid per browser CORS rules and causes real requests to be
+# silently blocked even when preflight succeeds.
+#
+# allow_origin_regex additionally matches any *.vercel.app URL automatically,
+# since Vercel gives each deployment its own unique URL — this avoids needing
+# to manually update CORS_ORIGINS every time a new deployment changes it.
+_explicit_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_credentials=False,
+    allow_origins=_explicit_origins or ["*"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
