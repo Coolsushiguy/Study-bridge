@@ -14,7 +14,7 @@ function timeGreeting() {
 }
 
 function streakDisplay(current, justBroken) {
-  if (justBroken) return { emoji: "🥶😓🫠", label: "Streak lost — start a new one today" };
+  if (justBroken) return { emoji: "🥶 😓 🫠", label: "Streak lost — start a new one today" };
   if (!current) return { emoji: "✨", label: "Start your streak today" };
   if (current >= 30) return { emoji: "💪🔥", label: `${current} day streak` };
   if (current >= 14) return { emoji: "❤️‍🔥", label: `${current} day streak` };
@@ -55,6 +55,21 @@ export default function Dashboard() {
         <div data-testid="consent-warning" className="sb-card rounded-2xl p-5 border-sb-accent/40 sb-glow">
           <p className="text-sb-accent font-medium">Parental consent pending</p>
           <p className="text-sm text-orange-50/60 mt-1">Ask a parent to open the consent link we emailed to complete COPPA verification.</p>
+        </div>
+      )}
+
+      {user?.needs_assessment && !user?.onboarding_complete && user?.assessment_skipped && (
+        <div data-testid="finish-placement-nudge" className="sb-card rounded-2xl p-5 border-2 border-sb-accent/40 sb-glow flex items-center gap-4 flex-wrap">
+          <div className="w-10 h-10 rounded-full bg-sb-accent/15 flex items-center justify-center shrink-0"><Compass className="w-5 h-5 text-sb-accent" /></div>
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-sb-accent font-medium">Finish your placement tests</p>
+            <p className="text-sm text-orange-50/70 mt-1">
+              {user?.assessment_deadline
+                ? `You have until ${new Date(user.assessment_deadline).toLocaleDateString()} to finish, or you won't be able to continue using StudyBridge.`
+                : "Complete these to unlock your personalized curriculum."}
+            </p>
+          </div>
+          <Link to="/onboarding" data-testid="finish-placement-btn" className="bg-sb-accent text-sb-base px-5 py-2.5 rounded-full text-sm font-medium hover:bg-sb-accentHover transition-colors">Continue now</Link>
         </div>
       )}
 
