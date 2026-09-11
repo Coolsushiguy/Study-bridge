@@ -14,7 +14,7 @@ function timeGreeting() {
 }
 
 function streakDisplay(current, justBroken) {
-  if (justBroken) return { emoji: "🥶 😓 🫠", label: "Streak lost — start a new one today" };
+  if (justBroken) return { emoji: "🥶", label: "Streak lost — start a new one today" };
   if (!current) return { emoji: "✨", label: "Start your streak today" };
   if (current >= 30) return { emoji: "💪🔥", label: `${current} day streak` };
   if (current >= 14) return { emoji: "❤️‍🔥", label: `${current} day streak` };
