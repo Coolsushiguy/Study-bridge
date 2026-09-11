@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, Bell, CheckCheck } from "lucide-react";
 import api from "@/lib/api";
+
+// Where clicking a notification should actually take you, based on its type.
+const NOTIFICATION_LINKS = {
+  placement_reminder: "/onboarding",
+  placement_locked: "/onboarding",
+  career_test_due: "/onboarding",
+  triennial_test_due: "/onboarding",
+};
 
 export default function NotificationsPanel({ open, onClose, onRead }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -29,6 +39,15 @@ export default function NotificationsPanel({ open, onClose, onRead }) {
       setNotifications((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
       onRead && onRead();
     } catch (e) {}
+  };
+
+  const handleClick = (n) => {
+    if (!n.read) markOneRead(n.id);
+    const link = NOTIFICATION_LINKS[n.type];
+    if (link) {
+      onClose();
+      navigate(link);
+    }
   };
 
   if (!open) return null;
@@ -61,7 +80,7 @@ export default function NotificationsPanel({ open, onClose, onRead }) {
           {notifications.map((n) => (
             <button
               key={n.id}
-              onClick={() => !n.read && markOneRead(n.id)}
+              onClick={() => handleClick(n)}
               data-testid={`notification-${n.id}`}
               className={`w-full text-left rounded-xl p-4 border transition-colors ${
                 n.read ? "border-sb-border bg-sb-elevated/40 text-orange-50/50" : "border-sb-accent/40 bg-sb-accent/10 text-orange-50"
