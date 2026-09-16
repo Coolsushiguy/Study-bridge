@@ -1,4 +1,4 @@
- """Static curriculum shells. Lesson/exercise content is AI-generated on demand and cached."""
+"""Static curriculum shells. Lesson/exercise content is AI-generated on demand and cached."""
 
 SUBJECTS = [
     {
