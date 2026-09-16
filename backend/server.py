@@ -46,8 +46,8 @@ anthropic_client = (
 )  # timeout=45s + max_retries=0: we handle retries ourselves below, and a hung
    # request should fail fast rather than hang indefinitely.
 
-CHAT_MODEL = "claude-sonnet-4-5"
-LESSON_MODEL = "claude-sonnet-4-5"
+CHAT_MODEL = "claude-sonnet-4-5-20250929"
+LESSON_MODEL = "claude-sonnet-4-5-20250929"
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 
@@ -765,7 +765,7 @@ async def chapter_detail(
             content = await generate_chapter_content(subject, chapter, grade_int)
         except Exception as e:
             logger.error(f"Lesson generation failed: {e}")
-            raise HTTPException(status_code=502, detail="Could not generate lesson content. Please try again.")
+            raise HTTPException(status_code=502, detail=f"Could not generate lesson content: {type(e).__name__}: {e}")
         await db.chapter_content.insert_one({
             "cache_key": cache_key,
             "subject": subject_key,
@@ -1088,7 +1088,7 @@ async def ai_helper(body: ChatBody, user: dict = Depends(get_current_user)):
         reply = await _sol_send(messages)
     except Exception as e:
         logger.error(f"Sol (AI helper) failed: {e}")
-        raise HTTPException(status_code=502, detail="Sol is unavailable right now. Please try again.")
+        raise HTTPException(status_code=502, detail=f"Sol is unavailable right now: {type(e).__name__}: {e}")
     await db.chat_messages.insert_one({
         "user_id": user["id"], "session_id": session_id, "role": "assistant",
         "text": reply, "created_at": datetime.now(timezone.utc).isoformat(),
